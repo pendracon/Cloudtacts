@@ -1,0 +1,35 @@
+version: "3.9"  # optional since v1.27.0
+networks:
+  vtis-cloudtacts-net:
+    name: vtis-cloudtacts-net
+    driver: bridge
+services:
+  # Local MySQL instance for development and testing
+  mysql:
+    image: "mysql"
+    container_name: vtis-cloudtacts-userdb-mysql
+    restart: unless-stopped
+    ports:
+      - "33060:3306"
+    volumes:
+      - ${HOMEDIR}/mysql/data:/home/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DEFPASS}
+    networks:
+      - vtis-cloudtacts-net
+  firestore_emulator:
+    image: mtlynch/firestore-emulator
+    environment:
+      - FIRESTORE_PROJECT_ID=${DEFPROJECT}
+      - PORT=8200
+    ports:
+      - 8200:8200
+    networks:
+      - vtis-cloudtacts-net
+#  app:
+#    image: your-app-image
+#    environment:
+#      - FIRESTORE_EMULATOR_HOST=firestore_emulator:8200
+#      - FIRESTORE_PROJECT_ID=dummy-project-id
+#  depends_on:
+#    - firestore_emulator

@@ -1,0 +1,46 @@
+{
+	"argSwitch": "--",
+	"argSeparator": "EQUALS",
+	"parameters": [
+		{
+			"optionId": "configFileId",
+			"cliArgument": "configFile",
+			"environmentVar": "APP_CONFIG_FILE",
+			"propertyName": "app.config.file",
+			"defaultVal": "./config/application.properties",
+			"description": "Application configuration properties file."
+		},
+		{
+			"optionId": "userdbTestModeId",
+			"cliArgument": "userdbTestMode",
+			"environmentVar": "CT_USERDB_TEST_MODE",
+			"propertyName": "user.auth.testMode",
+			"defaultVal": "false",
+			"description": "Flag to enable use of in-memory simulated database for testing."
+		},
+		{
+			"optionId": "userdbHostId",
+			"cliArgument": "userdbHost",
+			"environmentVar": "CT_USERDB_HOST_IP",
+			"propertyName": "user.auth.host",
+			"defaultVal": "vtis-cloudtacts-userdb-mysql",
+			"description": "Name or IP of host containing the user information table, e.g.: 'vtis-cloudtacts-userdb-mysql'."
+		},
+		{
+			"optionId": "userdbPortId",
+			"cliArgument": "userdbPort",
+			"environmentVar": "CT_USERDB_PORT_NUM",
+			"propertyName": "user.auth.port",
+			"defaultVal": "3306",
+			"description": "TCP port number of the service containing the user information table, e.g.: '3306'."
+		},
+		{
+			"optionId": "userdbDatabaseId",
+			"cliArgument": "userdbDatabase",
+			"environmentVar": "CT_USERDB_DATABASE",
+			"propertyName": "user.auth.database",
+			"defaultVal": "cloudtacts",
+			"description": "Name of the database containing the user information table, e.g.: 'cloudtacts'."
+		}
+	]
+}

@@ -1,0 +1,15 @@
+version: "3.9"  # optional since v1.27.0
+networks:
+  vtis-cloudtacts-net:
+    name: vtis-cloudtacts-net
+    external: true
+services:
+  vtis-cloudtacts-firebase-emu:
+    build: .
+    image: vtis-cloudtacts/firebase-emu
+    container_name: vtis-cloudtacts-firebase-emu
+    ports:
+      - "8888:8888"
+    networks:
+      - vtis-cloudtacts-net
+    restart: unless-stopped
