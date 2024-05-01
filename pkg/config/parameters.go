@@ -15,6 +15,7 @@ configuration file has the following structure:
 	"argSwitch": "-",
 	"argSeparator": "SPACE",
 	"parameters": [{
+		"optionId": "configFileId"
 		"cliArgument": "configFile",
 		"environmentVar": "APP_CONFIG_FILE",
 		"propertyName": "app.config.file",
@@ -36,8 +37,11 @@ The following shows a sample usage:
 	if loaded, err := cfg.Parse(); !loaded {
 		log.Fatal(fmt.Sprintf("Error parsing runtime parameters: %v", err))
 	}
-	if cfg.AssignedValue("testMode") {
-		testMode := cfg.ValueOfWithDefault("testMode", "false")
+	optionId := "testModeKey"
+	if cfg.AssignedValue(optionId) {
+		testMode := cfg.ValueOf(optionId)
+	} else {
+		testMode := cfg.ValueOfWithDefault(optionId, "false")
 	}
 */
 package config
