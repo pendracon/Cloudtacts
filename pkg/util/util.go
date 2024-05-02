@@ -1,6 +1,7 @@
 package util
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -80,6 +81,11 @@ func ParseOptions(argSwitch string, argSeparator uint8, args []string) *map[stri
 	}
 
 	return &opts
+}
+
+func DigestOf(data string) []byte {
+	hashValue := sha256.Sum256([]byte(data))
+	return hashValue[:]
 }
 
 func LogIt(message string) {

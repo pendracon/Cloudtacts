@@ -99,38 +99,42 @@ func AssignedValue(id string) bool {
 // 	2. Environment variables
 // 	3. Configuration properties
 func Parse() (bool, error) {
-	// Load the parser configuration
-	err := loadConfiguration()
-	if err != nil {
-		util.LogError("Failed to load parser configuration.", err)
-	}
-
-	// Set the initial default values with preference for CLI options, followed
-	// by env overrides.
-	options := util.ParseOptions(argSwitch, argSeparator, os.Args[1:])
-	var parmVal string
-	updateProps := []string{}
-	for _, parm := range parserConfig.Parameters {
-		switch {
-		case len((*options)[parm.CliArgument]) > 0:
-			parmVal = (*options)[parm.CliArgument]
-		case len(os.Getenv(parm.EnvironmentVar)) > 0:
-			parmVal = os.Getenv(parm.EnvironmentVar)
-		case true:
-			parmVal = parm.DefaultVal
-			updateProps = append(updateProps, parm.PropertyName)
-		}
-		parameters[parm.OptionId] = parmVal
-	}
-
-	if AssignedValue(model.APP_CONFIG_FILE) {
-		// ...after which, configuration properties can define any parameters
-		// not already assigned.
-		//
-		success, err := loadProperties(ValueOf(model.APP_CONFIG_FILE), &updateProps)
+	if !parserLoaded {
+		// Load the parser configuration
+		err := loadConfiguration()
 		if err != nil {
-			return success, err
+			util.LogError("Failed to load parser configuration.", err)
 		}
+
+		// Set the initial default values with preference for CLI options, followed
+		// by env overrides.
+		options := util.ParseOptions(argSwitch, argSeparator, os.Args[1:])
+		var parmVal string
+		updateProps := []string{}
+		for _, parm := range parserConfig.Parameters {
+			switch {
+			case len((*options)[parm.CliArgument]) > 0:
+				parmVal = (*options)[parm.CliArgument]
+			case len(os.Getenv(parm.EnvironmentVar)) > 0:
+				parmVal = os.Getenv(parm.EnvironmentVar)
+			case true:
+				parmVal = parm.DefaultVal
+				updateProps = append(updateProps, parm.PropertyName)
+			}
+			parameters[parm.OptionId] = parmVal
+		}
+
+		if AssignedValue(model.APP_CONFIG_FILE) {
+			// ...after which, configuration properties can define any parameters
+			// not already assigned.
+			//
+			success, err := loadProperties(ValueOf(model.APP_CONFIG_FILE), &updateProps)
+			if err != nil {
+				return success, err
+			}
+		}
+
+		parserLoaded = true
 	}
 
 	return true, nil
@@ -149,6 +153,8 @@ var parameters map[string]string
 // internal parser configuration instance
 var parserConfig *model.ParserConfig
 
+// flag configuration is loaded
+var parserLoaded bool = false
 
 // configurationValue returns the assigned value for the specified key ('key')
 // in the given properties ('props') interface unless an assigned argument

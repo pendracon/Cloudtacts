@@ -41,6 +41,22 @@
 			"propertyName": "user.auth.database",
 			"defaultVal": "cloudtacts",
 			"description": "Name of the database containing the user information table, e.g.: 'cloudtacts'."
+		},
+		{
+			"optionId": "userdbFunctionPortId",
+			"cliArgument": "userdbFunctionPort",
+			"environmentVar": "CT_USERDB_FUNCTION_PORT",
+			"propertyName": "user.auth.function.testPort",
+			"defaultVal": "8088",
+			"description": "The Cloud Functions test service binding port."
+		},
+		{
+			"optionId": "userdbAddUserId",
+			"cliArgument": "userdbAddUserFunction",
+			"environmentVar": "CT_USERDB_ADD_USER_FUNCTION",
+			"propertyName": "user.auth.function.addUser",
+			"defaultVal": "AddUser",
+			"description": "The Cloud Functions target name for add user."
 		}
 	]
 }
