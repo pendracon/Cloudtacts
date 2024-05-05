@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -13,16 +12,17 @@ import (
 )
 
 func main() {
-	if _, err := config.Parse(); err != nil {
-		util.LogError("Failed to parse configuration.", err)
+	var cfg *config.Config
+	var err error
+
+	if cfg, err = config.ContextConfig(); err != nil {
+		util.LogError("CloudtactsRunner", "Failed to parse configuration.", err)
 	}
 
-	port := config.ValueOfWithDefault("userdbFunctionPortId", "8088")
-	target := config.ValueOf("userdbAddUserId")
+	port := cfg.ValueOfWithDefault("userdbFunctionPortId", "8088")
 
-	ctx := context.Background()
-	if err := funcframework.RegisterHTTPFunctionContext(ctx, "/", nondeclarative.HTTP); err != nil {
-		util.LogError(fmt.Sprint("Failed to register function: %v", target), err)
+	if err := funcframework.RegisterHTTPFunctionContext(cfg.Context(), "/", nondeclarative.HTTP); err != nil {
+		util.LogError("CloudtactsRunner", "Failed to register function context.", err)
 	}
 
 	// By default, listen on all interfaces. If testing locally, run with
@@ -32,7 +32,9 @@ func main() {
 	if localOnly := os.Getenv("LOCAL_ONLY"); localOnly == "true" {
 		hostname = "127.0.0.1"
 	}
+
+	util.LogIt("CloudtactsRunner", fmt.Sprintf("Starting function handler on port %v.", port))
 	if err := funcframework.StartHostPort(hostname, port); err != nil {
-		util.LogError(fmt.Sprintf("funcframework.StartHostPort/Function: %v/%v\n", port, target), err)
+		util.LogError("CloudtactsRunner", fmt.Sprintf("funcframework.StartHostPort: %v\n", port), err)
 	}
 }

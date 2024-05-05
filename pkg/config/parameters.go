@@ -47,6 +47,7 @@ The following shows a sample usage:
 package config
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -58,15 +59,52 @@ import (
 	"Cloudtacts/pkg/util"
 )
 
+// A context configuration containing a loaded and parsed application
+// configuration chain (see Parse).
+type Config struct {
+	// CLI argument prefix switch (e.g. "--")
+	argSwitch string
+
+	// CLI argument separator character (one of: SPACE [' '], COMMA [','], COLON [':'], SEMI-COLON [';'])
+	argSeparator uint8
+
+	// Table of parameters
+	parameters map[string]string
+
+	// internal parser configuration instance
+	parserConfig *model.ParserConfig
+
+	// flag configuration is loaded
+	parserLoaded bool
+
+	// go context
+	ctx context.Context
+}
+
+// ContextConfig returns an application configuration instance with go context
+// attached.
+func ContextConfig() (*Config, error) {
+	cfg := new(Config)
+	cfg.parserLoaded = false
+
+	ok, err := cfg.Parse()
+
+	if !ok {
+		util.LogIt("", fmt.Sprintf("Error parsing config: %v", err))
+	}
+	cfg.ctx = context.Background()
+
+	return cfg, err
+}
 
 // ValueOf returns the configuration value for the given parameter identifier.
 // The parameter identifier can be any one of:
 // 1. a CLI argument without its prefix switch (e.g. '--'; "userdbTestMode")
 // 2. an environment variable name (e.g. "CT_USERDB_TEST_MODE"
 // 3. a configuration file propert key (e.g. "user.auth.testMode")
-func ValueOf(id string) string {
-	if len(parameters[id]) > 0 {
-		return parameters[id]
+func (cfg *Config) ValueOf(id string) string {
+	if len(cfg.parameters[id]) > 0 {
+		return cfg.parameters[id]
 	}
 	return ""
 }
@@ -74,8 +112,8 @@ func ValueOf(id string) string {
 // ParameterWithDefault returns the configuration value for the given
 // enumerated constant or the specified default value if not otherwise
 // configured.
-func ValueOfWithDefault(id string, defVal string) string {
-	parmVal := ValueOf(id)
+func (cfg *Config) ValueOfWithDefault(id string, defVal string) string {
+	parmVal := cfg.ValueOf(id)
 	if parmVal == model.USER_MUST_PROVIDE {
 		parmVal = defVal
 	}
@@ -84,11 +122,21 @@ func ValueOfWithDefault(id string, defVal string) string {
 
 // AssignedValue returns true if the configuration parameter for the given
 // enumerated constant has a user assigned value.
-func AssignedValue(id string) bool {
-	if len(parameters[id]) > 0 && parameters[id] != model.USER_MUST_PROVIDE {
+func (cfg *Config) AssignedValue(id string) bool {
+	if len(cfg.parameters[id]) > 0 && cfg.parameters[id] != model.USER_MUST_PROVIDE {
 		return true
 	}
 	return false
+}
+
+// IsParsed returns true if configuration has been loaded and parsed.
+func (cfg *Config) IsParsed() bool {
+	return cfg.parserLoaded
+}
+
+// Context returns the go context for the instance.
+func (cfg *Config) Context() context.Context {
+	return cfg.ctx
 }
 
 // Parse initializes configuration parameters with user assigned values or with
@@ -98,20 +146,21 @@ func AssignedValue(id string) bool {
 // 	1. CLI arguments
 // 	2. Environment variables
 // 	3. Configuration properties
-func Parse() (bool, error) {
-	if !parserLoaded {
+func (cfg *Config) Parse() (bool, error) {
+	if !cfg.parserLoaded {
 		// Load the parser configuration
-		err := loadConfiguration()
+		err := cfg.loadConfiguration()
 		if err != nil {
-			util.LogError("Failed to load parser configuration.", err)
+			util.LogIt("", fmt.Sprintf("Failed to load parser configuration: %v", err))
+			return false, util.WrappedError(err, "loadConfiguration")
 		}
 
 		// Set the initial default values with preference for CLI options, followed
 		// by env overrides.
-		options := util.ParseOptions(argSwitch, argSeparator, os.Args[1:])
+		options := util.ParseOptions(cfg.argSwitch, cfg.argSeparator, os.Args[1:])
 		var parmVal string
 		updateProps := []string{}
-		for _, parm := range parserConfig.Parameters {
+		for _, parm := range cfg.parserConfig.Parameters {
 			switch {
 			case len((*options)[parm.CliArgument]) > 0:
 				parmVal = (*options)[parm.CliArgument]
@@ -121,77 +170,53 @@ func Parse() (bool, error) {
 				parmVal = parm.DefaultVal
 				updateProps = append(updateProps, parm.PropertyName)
 			}
-			parameters[parm.OptionId] = parmVal
+			cfg.parameters[parm.OptionId] = parmVal
 		}
 
-		if AssignedValue(model.APP_CONFIG_FILE) {
+		if cfg.AssignedValue(model.APP_CONFIG_ID) || len(model.ApplicationConfigPath) > 0 {
 			// ...after which, configuration properties can define any parameters
 			// not already assigned.
 			//
-			success, err := loadProperties(ValueOf(model.APP_CONFIG_FILE), &updateProps)
+			_, err := cfg.loadProperties(cfg.ValueOf(model.APP_CONFIG_ID), &updateProps)
 			if err != nil {
-				return success, err
+				success, err := cfg.loadProperties(model.ApplicationConfigPath, &updateProps)
+				if err != nil {
+					return success, util.WrappedError(err, "loadProperties")
+				}
+				util.LogIt("", "Loaded application config from override.")
 			}
 		}
 
-		parserLoaded = true
+		cfg.parserLoaded = true
 	}
 
 	return true, nil
 }
 
-
-// CLI argument prefix switch (e.g. "--")
-var argSwitch string = "--"
-
-// CLI argument separator character (one of: SPACE [' '], COMMA [','], COLON [':'], SEMI-COLON [';'])
-var argSeparator uint8 = ' '
-
-// Table of parameters
-var parameters map[string]string
-
-// internal parser configuration instance
-var parserConfig *model.ParserConfig
-
-// flag configuration is loaded
-var parserLoaded bool = false
-
-// configurationValue returns the assigned value for the specified key ('key')
-// in the given properties ('props') interface unless an assigned argument
-// value is given ('argVal'). Returns the specified default value ('defVal')
-// if the argument value and property key are both unassigned.
-func configurationValue(props *properties.Properties, key string, defVal string) string {
-	propVal := props.GetString(key, model.USER_MUST_PROVIDE)
-	if propVal == model.USER_MUST_PROVIDE {
-		return defVal
-	}
-	return propVal
-}
-
 // loadConfiguration reads the parser configuration and pre-initializes the
 // parser for loading the user's application configuration.
-func loadConfiguration() error {
-	parserConfig = new(model.ParserConfig)
-	if err := util.LoadParserConfig(parserConfig); err != nil {
-		util.LogError("Error loading parser configuration.", err)
+func (cfg *Config) loadConfiguration() error {
+	cfg.parserConfig = new(model.ParserConfig)
+	if err := util.LoadParserConfig(cfg.parserConfig); err != nil {
+		util.LogIt("", fmt.Sprintf("Error loading parser configuration: %v", err))
+		return util.WrappedError(err, "LoadParserConfig")
+	}
+	cfg.parameters = make(map[string]string)
+
+	if len(cfg.parserConfig.ArgSwitch) > 0 {
+		cfg.argSwitch = cfg.parserConfig.ArgSwitch
 	}
 
-	parameters = make(map[string]string)
-
-	if len(parserConfig.ArgSwitch) > 0 {
-		argSwitch = parserConfig.ArgSwitch
-	}
-
-	if len(parserConfig.ArgSeparator) > 0 {
-		switch parserConfig.ArgSeparator {
+	if len(cfg.parserConfig.ArgSeparator) > 0 {
+		switch cfg.parserConfig.ArgSeparator {
 		case "EQUALS":
-			argSeparator = '='
+			cfg.argSeparator = '='
 		case "COMMA":
-			argSeparator = ','
+			cfg.argSeparator = ','
 		case "COLON":
-			argSeparator = ':'
+			cfg.argSeparator = ':'
 		case "SEMI-COLON":
-			argSeparator = ';'
+			cfg.argSeparator = ';'
 		case "SPACE":
 			// default
 		}
@@ -203,26 +228,36 @@ func loadConfiguration() error {
 // loadProperties reads all key=value pair properties from the specified file
 // path and assigns their values to any matching parameters not already
 // assigned a value.
-func loadProperties(filename string, propsList *[]string) (bool, error) {
-	fmt.Println("Loading properties...")
-
+func (cfg *Config) loadProperties(filename string, propsList *[]string) (bool, error) {
 	if filename == "" {
-		return false, errors.New("File name not provided.")
+		return false, util.WrappedError(errors.New("file name not provided"), "load properties")
 	}
 
 	props, err := properties.LoadFile(filename, properties.UTF8)
 	if err != nil {
-		return false, err
+		return false, util.WrappedError(err, "load properties")
 	}
 
 	var parmVal string
-	for _, parm := range parserConfig.Parameters {
+	for _, parm := range cfg.parserConfig.Parameters {
 		if slices.Contains(*propsList, parm.PropertyName) {
-			parmVal = configurationValue(props, parm.PropertyName, parameters[parm.OptionId])
-			parameters[parm.OptionId] = parmVal
-			util.LogIt(fmt.Sprintf("Updated prop (%v): %v = %v", parm.OptionId, parm.PropertyName, parmVal))
+			parmVal = configurationValue(props, parm.PropertyName, cfg.parameters[parm.OptionId])
+			cfg.parameters[parm.OptionId] = parmVal
+			//util.LogIt("", fmt.Sprintf("Updated prop (%v): %v = %v", parm.OptionId, parm.PropertyName, parmVal))
 		}
 	}
 
 	return true, nil
+}
+
+// configurationValue returns the assigned value for the specified key ('key')
+// in the given properties ('props') interface unless an assigned argument
+// value is given ('argVal'). Returns the specified default value ('defVal')
+// if the argument value and property key are both unassigned.
+func configurationValue(props *properties.Properties, key string, defVal string) string {
+	propVal := props.GetString(key, model.USER_MUST_PROVIDE)
+	if propVal == model.USER_MUST_PROVIDE {
+		return defVal
+	}
+	return propVal
 }

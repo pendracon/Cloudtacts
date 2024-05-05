@@ -51,12 +51,68 @@
 			"description": "The Cloud Functions test service binding port."
 		},
 		{
+			"optionId": "userdbGetUserId",
+			"cliArgument": "userdbGetUserFunction",
+			"environmentVar": "CT_USERDB_GET_USER_FUNCTION",
+			"propertyName": "user.auth.function.getUser",
+			"defaultVal": "GetUser",
+			"description": "The Cloud Functions target name for get user info."
+		},
+		{
 			"optionId": "userdbAddUserId",
 			"cliArgument": "userdbAddUserFunction",
 			"environmentVar": "CT_USERDB_ADD_USER_FUNCTION",
 			"propertyName": "user.auth.function.addUser",
 			"defaultVal": "AddUser",
 			"description": "The Cloud Functions target name for add user."
+		},
+		{
+			"optionId": "userdbDeleteUserId",
+			"cliArgument": "userdbDeleteUserFunction",
+			"environmentVar": "CT_USERDB_DELETE_USER_FUNCTION",
+			"propertyName": "user.auth.function.deleteUser",
+			"defaultVal": "DeleteUser",
+			"description": "The Cloud Functions target name for delete user."
+		},
+		{
+			"optionId": "userdbUpdateUserId",
+			"cliArgument": "userdbUpdateUserFunction",
+			"environmentVar": "CT_USERDB_UPDATE_USER_FUNCTION",
+			"propertyName": "user.auth.function.updateUser",
+			"defaultVal": "UpdateUser",
+			"description": "The Cloud Functions target name for update user."
+		},
+		{
+			"optionId": "userdbMaxPoolConnectionsId",
+			"cliArgument": "userdbMaxPoolConnections",
+			"environmentVar": "CT_USERDB_MAX_POOL_SIZE",
+			"propertyName": "user.auth.max.pool",
+			"defaultVal": "-1",
+			"description": "Maximum connection pool size."
+		},
+		{
+			"optionId": "userdbMaxIdleConnectionsId",
+			"cliArgument": "userdbMaxIdleConnections",
+			"environmentVar": "CT_USERDB_MAX_IDLE_SIZE",
+			"propertyName": "user.auth.max.idle",
+			"defaultVal": "2",
+			"description": "Maximum number of idle connections."
+		},
+		{
+			"optionId": "userdbMaxIdleTimeId",
+			"cliArgument": "userdbMaxIdleTime",
+			"environmentVar": "CT_USERDB_MAX_IDLE_TIME",
+			"propertyName": "user.auth.max.idleTime",
+			"defaultVal": "300",
+			"description": "Maximum time in seconds for a connection to idle."
+		},
+		{
+			"optionId": "userdbMaxLifeTimeId",
+			"cliArgument": "userdbMaxLifeTime",
+			"environmentVar": "CT_USERDB_MAX_LIFE_TIME",
+			"propertyName": "user.auth.max.lifeTime",
+			"defaultVal": "30",
+			"description": "Maximum time in minutes for a connection to live."
 		}
 	]
 }

@@ -9,8 +9,11 @@ import (
 	"Cloudtacts/pkg/util"
 )
 
+var cfg *config.Config
+var testData *model.UserList
+
 func TestNewUserDBClient(t *testing.T) {
-	uc := connect()
+	uc := connect(t)
 	t.Logf("Got DB client: %v\n", uc.HostUrl())
 
 	close(uc)
@@ -18,21 +21,22 @@ func TestNewUserDBClient(t *testing.T) {
 }
 
 func TestAddUser(t *testing.T) {
-	uc := connect()
+	uc := connect(t)
 	defer close(uc)
 
-	err := uc.AddUser(&(testData.Users[0]))
-	if err != nil {
-		util.LogError("Error adding user.", err)
+	if serr := uc.AddUser(&(testData.Users[0])); serr.IsError() {
+		t.Errorf("Error adding user: %v", serr)
 	}
-	err = uc.UpdateUser(&(testData.Users[0]))
-	if err != nil {
-		util.LogError("Error updating user.", err)
+	t.Logf("Added user: %v", testData.Users[0].CtUser)
+
+	if serr := uc.UpdateUser(&(testData.Users[0])); serr.IsError() {
+		t.Errorf("Error updating user: %v", serr)
 	}
+	t.Logf("Updated user: %v", testData.Users[0].CtUser)
 }
 
 func TestUserInfo(t *testing.T) {
-	uc := connect()
+	uc := connect(t)
 	defer close(uc)
 
 	userData := model.User{
@@ -40,36 +44,51 @@ func TestUserInfo(t *testing.T) {
 		CtProf: testData.Users[0].CtProf,
 		UEmail: testData.Users[0].UEmail,
 	}
-	uc.UserInfo(&userData)
-	util.LogIt(fmt.Sprintf("testData = %v", testData.Users[0]))
-	util.LogIt(fmt.Sprintf("userData = %v", userData))
+	if serr := uc.UserInfo(&userData); serr.IsError() {
+		t.Errorf("Error getting user info: %v", serr)
+	}
+	t.Logf("testData = %v", testData.Users[0])
+	t.Logf("userData = %v", userData)
+	if testData.Users[0] != userData {
+		t.Error("Queried data doesn't match test data.")
+	}
 }
 
 func TestDelUser(t *testing.T) {
-	uc := connect()
+	uc := connect(t)
 	defer close(uc)
 
-	uc.DelUser(&(testData.Users[0]))
+	if serr := uc.DeleteUser(&(testData.Users[0])); serr.IsError() {
+		t.Errorf("Error deleting user info: %v", serr)
+	}
+	t.Logf("Deleted user: %v", testData.Users[0].CtUser)
 }
 
 func close(uc *userClient) {
 	CloseUserDBClient(uc)
 }
 
-func connect() *userClient {
-	uc := NewUserDBClient(config.ValueOf("userdbHostId"), config.ValueOf("userdbPortId"), config.ValueOf("userdbDatabaseId"))
+func connect(t *testing.T) *userClient {
+	uc, serr := GetDbClient(cfg, cfg.ValueOf("userdbHostId"), cfg.ValueOf("userdbPortId"), cfg.ValueOf("userdbDatabaseId"))
+	if serr.IsError() {
+		t.Errorf("Error getting DB client: %v", serr)
+	}
+
 	return uc
 }
 
 func init() {
-	util.ParserConfigPath = "../../config/parameters_config.json"
-	config.Parse()
-	testData = new(model.UserList)
-
-	err := util.LoadUserListFile("../../data/TestUsers.json", testData)
+	model.ParserConfigPath = "../../config/parameters_config.json"
+	model.ApplicationConfigPath = "../../config/application.properties"
+	cfg, err := config.ContextConfig()
 	if err != nil {
-		util.LogError("TestNewUser", err)
+		util.LogError("", "parameters_test:TestConfig", err)
+	}
+	util.LogIt("", fmt.Sprintf("Parsed configuration = %v", cfg.IsParsed()))
+
+	testData = new(model.UserList)
+	err = util.LoadUserListFile("../../data/TestUsers.json", testData)
+	if err != nil {
+		util.LogError("Cloudtacts", "user_test:TestNewUser", err)
 	}
 }
-
-var testData *model.UserList

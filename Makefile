@@ -1,14 +1,16 @@
 RUNNER_BIN=authrunnerexe
 CC = go build
 RUN = go run
+CLEAN = go clean
+TEST = go test
 ODIR = build/Cloudtacts
 DDIR = dist/Cloudtacts
 FLAGS = -ldflags="-s -w"
 GOOS = linux
 
-.PHONY: all authrunner buildir runner clean install localdeploy
+.PHONY: all authrunner buildir runner clean install localdeploy test
 
-all : buildir $(TARGET)
+all : clean test buildir prep runner localdeploy
 
 authrunner : buildir prep runner localdeploy
 
@@ -17,9 +19,9 @@ buildir:
 	if test -n $(DDIR); then mkdir -p $(DDIR); fi
 
 runner:
-	cp cmd/function/runner.go $(ODIR)
-	cp cmd/function/function.go $(ODIR)
-	GOOS=$(GOOS) $(CC) $(FLAGS) -o $(DDIR)/$(RUNNER_BIN) $(ODIR)/runner.go
+	cp cmd/auth/function.go $(ODIR)
+	cp cmd/main/runner.go $(ODIR)
+	GOOS=$(GOOS) $(CC) $(FLAGS) -o $(DDIR)/$(RUNNER_BIN) $(ODIR)/*.go
 
 localdeploy:
 	cp -r config $(DDIR)
@@ -35,6 +37,11 @@ prep:
 	cp go.sum $(DDIR)
 	cp -r pkg $(ODIR)
 
+test:
+	$(TEST) ./pkg/auth
+	$(TEST) ./pkg/config
+
 clean :
+	$(CLEAN)
 	rm -rf $(DDIR) 2> /dev/null
 	rm -rf $(ODIR) 2> /dev/null

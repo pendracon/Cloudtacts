@@ -3,10 +3,12 @@ package auth
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 
+	"Cloudtacts/pkg/config"
 	"Cloudtacts/pkg/model"
 	"Cloudtacts/pkg/util"
 )
@@ -18,167 +20,223 @@ const (
 	UPDATE_USER_STMT string = "UPDATE user SET ctpass = ?, ctppic = ?, atoken = ?, llogin = ?, uvalid = ? WHERE ctuser = ? AND ctprof = ? AND uemail = ?"
 )
 
-type UserError struct {
-	mesg	string
-}
-
 type UserDBClient interface {
 	// Updates the referenced user instance with information from the database.
-	UserInfo(user *model.User) error
+	UserInfo(*model.User) model.ServiceError
 
 	// Adds the referenced user information to the database.
-	AddUser(user *model.User) error
+	AddUser(*model.User) model.ServiceError
 
 	// Deletes the referenced user information from the database.
-	DelUser(user *model.User) error
+	DeleteUser(*model.User) model.ServiceError
 
 	// Updates the referenced user information in the database.
-	UpdateUser(user *model.User) error
+	UpdateUser(*model.User) model.ServiceError
 
 	// Return host URL of the database.
 	HostUrl() string
 }
 
-func (err UserError) Error() string {
-	return err.mesg
-}
+func (uc *userClient) UserInfo(user *model.User) model.ServiceError {
+	var ferr model.ServiceError
 
-func (uc *userClient) UserInfo(user *model.User) error {
 	if ok, err := validateUserKey(user); !ok {
-		return err
+		return model.InvalidKeyError.WithCause(err)
 	}
 
-	rows, err := uc.dbClient.Query(SELECT_USER_INFO, user.CtUser, user.CtProf, user.UEmail)
+	rows, err := uc.conn.Query(SELECT_USER_INFO, user.CtUser, user.CtProf, user.UEmail)
 	if err != nil {
-		util.LogError("Error querying user info.", err)
-	}
-	defer rows.Close()
+		ferr = model.DbQueryError.WithCause(err)
+	} else {
+		defer rows.Close()
 
-	if rows.Next() {
-		err := rows.Scan(&user.CtPass, &user.CtPpic, &user.AToken, &user.LLogin, &user.UValid)
+		if rows.Next() {
+			ctppic := make([]byte, 52)
+			atoken := make([]byte, 20)
+			llogin := make([]byte, 14)
+			uvalid := make([]byte, 14)
+			err := rows.Scan(&user.CtPass, &ctppic, &atoken, &llogin, &uvalid)
+			if err != nil {
+				ferr = model.DbScanError.WithCause(err)
+			} else {
+				user.CtPpic = string(ctppic[:])
+				user.AToken = string(atoken[:])
+				user.LLogin = string(llogin[:])
+				user.UValid = string(uvalid[:])
+			}
+		}
+
+		err = rows.Err()
 		if err != nil {
-			util.LogError("Error scanning user info.", err)
+			ferr = model.DbResultsError.WithCause(err)
 		}
 	}
 
-	err = rows.Err()
-	if err != nil {
-		util.LogError("Got unknown results error.", err)
-	}
-
-	return err
+	return ferr
 }
 
-func (uc *userClient) AddUser(user *model.User) error {
+func (uc *userClient) AddUser(user *model.User) model.ServiceError {
+	var ferr = model.ServiceError{}
+
 	if ok, err := validateUserKey(user); !ok {
-		return err
+		ferr = model.InvalidKeyError.WithCause(err)
 	}
 
-	stmtIns, err := uc.dbClient.Prepare(INSERT_USER_STMT)
+	stmtIns, err := uc.conn.Prepare(INSERT_USER_STMT)
 	if err != nil {
-		util.LogError("Error preparing add user statement.", err)
+		ferr = model.DbPrepareError.WithCause(err)
 	}
 	defer stmtIns.Close()
 
 	_, err = stmtIns.Exec(user.CtUser, user.CtPass, user.CtProf, user.UEmail, user.CtPpic)
 	if err != nil {
-		util.LogError("Error executing add user.", err)
+		ferr = model.DbInsertError.WithCause(err)
 	}
 
-	return nil
+	return ferr
 }
 
-func (uc *userClient) DelUser(user *model.User) error {
+func (uc *userClient) DeleteUser(user *model.User) model.ServiceError {
+	var ferr = model.ServiceError{}
+
 	if ok, err := validateUserKey(user); !ok {
-		return err
+		ferr = model.InvalidKeyError.WithCause(err)
 	}
 
-	stmtDel, err := uc.dbClient.Prepare(DELETE_USER_STMT)
+	stmtDel, err := uc.conn.Prepare(DELETE_USER_STMT)
 	if err != nil {
-		util.LogError("Error preparing delete user statement.", err)
+		ferr = model.DbPrepareError.WithCause(err)
 	}
 	defer stmtDel.Close()
 
 	_, err = stmtDel.Exec(user.CtUser, user.CtProf, user.UEmail)
 	if err != nil {
-		util.LogError("Error executing delete user.", err)
+		ferr = model.DbExecuteError.WithCause(err)
 	}
 
-	return nil
+	return ferr
 }
 
-func (uc *userClient) UpdateUser(user *model.User) error {
+func (uc *userClient) UpdateUser(user *model.User) model.ServiceError {
+	var ferr = model.ServiceError{}
+
 	if ok, err := validateUserKey(user); !ok {
-		return err
+		ferr = model.InvalidKeyError.WithCause(err)
 	}
 
-	stmtUpd, err := uc.dbClient.Prepare(UPDATE_USER_STMT)
+	stmtUpd, err := uc.conn.Prepare(UPDATE_USER_STMT)
 	if err != nil {
-		util.LogError("Error preparing update user statement.", err)
+		ferr = model.DbPrepareError.WithCause(err)
 	}
 	defer stmtUpd.Close()
 
 	_, err = stmtUpd.Exec(user.CtPass, user.CtPpic, user.AToken, user.LLogin, user.UValid, user.CtUser, user.CtProf, user.UEmail)
 	if err != nil {
-		util.LogError("Error executing update user.", err)
+		ferr = model.DbExecuteError.WithCause(err)
 	}
 
-	return nil
+	return ferr
 }
 
 func (uc *userClient) HostUrl() string {
 	return uc.hostUrl
 }
 
-func NewUserDBClient(host, port, database string) *userClient {
+func GetDbClient(cfg *config.Config, host, port, database string) (*userClient, model.ServiceError) {
+	var serr model.ServiceError
+
+	util.LogIt("Cloudtacts", fmt.Sprintf("Getting client for host '%v', port '%v', database '%v'...", host, port, database))
+
 	hostUrl := fmt.Sprintf("%v:%v", host, port)
-	client := new(userClient)
-	client.hostUrl = hostUrl
-	var err error
+	appDbClient := new(userClient)
+	appDbClient.hostUrl = hostUrl
+	serr = initClient(cfg, appDbClient, database)
 
-	if hostUrl != "" {
-		client.dbClient, err = sql.Open("mysql", fmt.Sprintf("root:devpass@tcp(%v)/%v?tls=skip-verify&autocommit=true&parseTime=true", hostUrl, database))
-
-		if err != nil {
-			util.LogError(fmt.Sprintf("Error opening user database on host %v.", hostUrl), err)
-		}
-		util.LogIt(fmt.Sprintf("DB client using user database on host %v.", hostUrl))
-	} else {
-		client.dbClient, err = sql.Open("mysql", "root:password@tcp(127.0.0.1:3306)/cloudtacts")
-
-		if err != nil {
-			util.LogError("Error opening user database on localhost.", err)
-		}
-		util.LogIt("DB client using user database at localhost.")
-	}
-
-	if err == nil {
-		client.dbClient.SetConnMaxLifetime(time.Minute * 3)
-		client.dbClient.SetMaxOpenConns(10)
-		client.dbClient.SetMaxIdleConns(10)
-	}
-
-	return client
+	return appDbClient, serr
 }
 
 func CloseUserDBClient(client *userClient) {
-	client.dbClient.Close()
-}
-
-func validateUserKey(user *model.User) (bool, error) {
-	switch {
-		case len(user.CtUser) == 0:
-			return false, UserError{"User identifier is empty!"}
-		case len(user.CtProf) == 0:
-			return false, UserError{"User profile name is empty!"}
-		case len(user.UEmail) == 0:
-			return false, UserError{"User e-mail address is empty!"}
+	if client != nil {
+		client.conn.Close()
 	}
-
-	return true, nil
 }
 
 type userClient struct {
-	hostUrl  string
-	dbClient *sql.DB
+	hostUrl string
+	conn    *sql.DB
+}
+
+func initClient(cfg *config.Config, uc *userClient, database string) model.ServiceError {
+	var serr model.ServiceError
+	var err error
+
+	if uc.hostUrl != "" {
+		uc.conn, err = sql.Open("mysql", fmt.Sprintf("root:devpass@tcp(%v)/%v?tls=skip-verify&autocommit=true&parseTime=true", uc.hostUrl, database))
+
+		if err != nil {
+			serr = model.DbOpenError.WithCause(err)
+		} else {
+			traceIt(cfg, fmt.Sprintf("DB client using user database on host %v.", uc.hostUrl))
+		}
+	} else {
+		uc.conn, err = sql.Open("mysql", "root:password@tcp(127.0.0.1:3306)/cloudtacts")
+
+		if err != nil {
+			serr = model.DbOpenError.WithCause(err)
+		} else {
+			traceIt(cfg, "DB client using user database at localhost.")
+		}
+	}
+
+	if serr == (model.ServiceError{}) {
+		if ival, err := strconv.Atoi(cfg.ValueOfWithDefault("userdbMaxPoolConnectionsId", "-1")); err == nil {
+			uc.conn.SetMaxOpenConns(ival)
+		} else {
+			uc.conn.SetMaxOpenConns(0)
+		}
+		if ival, err := strconv.Atoi(cfg.ValueOfWithDefault("userdbMaxIdleConnectionsId", "2")); err == nil {
+			uc.conn.SetMaxIdleConns(ival)
+		} else {
+			uc.conn.SetMaxIdleConns(2)
+		}
+		if ival, err := strconv.Atoi(cfg.ValueOfWithDefault("userdbMaxIdleTimeId", "300")); err == nil {
+			uc.conn.SetConnMaxIdleTime(time.Second * time.Duration(ival))
+		} else {
+			uc.conn.SetConnMaxIdleTime(time.Second * 300)
+		}
+		if ival, err := strconv.Atoi(cfg.ValueOfWithDefault("userdbMaxLifeTimeId", "30")); err == nil {
+			uc.conn.SetConnMaxLifetime(time.Minute * time.Duration(ival))
+		} else {
+			uc.conn.SetConnMaxLifetime(time.Minute * 30)
+		}
+
+		traceIt(cfg, fmt.Sprintf("Initial stats: %v", clientStats(uc)))
+	}
+
+	return (model.ServiceError{})
+}
+
+func clientStats(uc *userClient) string {
+	return fmt.Sprintf("%v, %v, %v, %v", uc.conn.Stats().MaxOpenConnections,
+		uc.conn.Stats().MaxIdleClosed, uc.conn.Stats().MaxIdleTimeClosed,
+		uc.conn.Stats().MaxLifetimeClosed)
+}
+
+func validateUserKey(user *model.User) (bool, model.UserError) {
+	switch {
+	case len(user.CtUser) == 0:
+		return false, model.NoUserIdError
+	case len(user.CtProf) == 0:
+		return false, model.NoProfileIdError
+	case len(user.UEmail) == 0:
+		return false, model.NoEmailAddressError
+	}
+
+	return true, model.UserError{}
+}
+
+func traceIt(cfg *config.Config, message string) {
+	if cfg.ValueOfWithDefault("userdbTestModeId", "false") == "true" {
+		util.LogIt("Cloudtacts", message)
+	}
 }

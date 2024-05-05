@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/GoogleCloudPlatform/functions-framework-go v1.8.1
+	github.com/efficientgo/core v1.0.0-rc.2
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/magiconair/properties v1.8.7
 	golang.org/x/crypto v0.14.0

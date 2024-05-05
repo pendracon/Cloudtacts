@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 
 	"Cloudtacts/pkg/config"
 	//"Cloudtacts/pkg/model"
@@ -10,20 +9,17 @@ import (
 )
 
 func main() {
-	logIt("Running VTIS 'parameters' demo...")
+	cfg, err := config.ContextConfig()
+	if err != nil {
+		util.LogError("Parameters", "TestConfig", err)
+	}
+	logIt(fmt.Sprintf("Parsed configuration = %v", cfg.IsParsed()))
 
-	logIt(fmt.Sprintf("Got userdbTestMode = %v", config.ValueOf("userdbTestModeId")))
-	logIt(fmt.Sprintf("Got userdbHost = %v", config.ValueOf("userdbHostId")))
+	logIt("Running VTIS 'parameters' demo...")
+	logIt(fmt.Sprintf("Got userdbTestMode = %v", cfg.ValueOf("userdbTestModeId")))
+	logIt(fmt.Sprintf("Got userdbHost = %v", cfg.ValueOf("userdbHostId")))
 }
 
 func logIt(message string) {
-	log.Println(fmt.Sprintf("Parameters CLI - %v", message))
-}
-
-func init() {
-	ok, err := config.Parse()
-	if err != nil {
-		util.LogError("Parameters CLI", err)
-	}
-	logIt(fmt.Sprintf("Parsed configuration = %v", ok))
+	util.LogIt("ParametersCLI", message)
 }
