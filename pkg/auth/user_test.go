@@ -20,21 +20,6 @@ func TestNewUserDBClient(t *testing.T) {
 	t.Log("Closed DB client.\n")
 }
 
-func TestAddUser(t *testing.T) {
-	uc := connect(t)
-	defer close(uc)
-
-	if serr := uc.AddUser(&(testData.Users[0])); serr.IsError() {
-		t.Errorf("Error adding user: %v", serr)
-	}
-	t.Logf("Added user: %v", testData.Users[0].CtUser)
-
-	if serr := uc.UpdateUser(&(testData.Users[0])); serr.IsError() {
-		t.Errorf("Error updating user: %v", serr)
-	}
-	t.Logf("Updated user: %v", testData.Users[0].CtUser)
-}
-
 func TestUserInfo(t *testing.T) {
 	uc := connect(t)
 	defer close(uc)
@@ -54,14 +39,74 @@ func TestUserInfo(t *testing.T) {
 	}
 }
 
+func TestAddUser(t *testing.T) {
+	uc := connect(t)
+	defer close(uc)
+
+	if serr := uc.AddUser(&(testData.Users[1])); serr.IsError() {
+		t.Errorf("Error adding user: %v", serr)
+	}
+	t.Logf("Added user: %v", testData.Users[1].CtUser)
+
+	userData := model.User{
+		CtUser: testData.Users[1].CtUser,
+		CtProf: testData.Users[1].CtProf,
+		UEmail: testData.Users[1].UEmail,
+	}
+	if serr := uc.UserInfo(&userData); serr.IsError() {
+		t.Errorf("Error querying added user: %v", serr)
+	}
+	if testData.Users[1] != userData {
+		t.Error("Queried data doesn't match test data.")
+	}
+}
+
+func TestUpdateUser(t *testing.T) {
+	uc := connect(t)
+	defer close(uc)
+
+	userData := model.User{
+		CtUser: testData.Users[1].CtUser,
+		CtProf: testData.Users[1].CtProf,
+		UEmail: testData.Users[1].UEmail,
+		CtPpic: "org1/pendracon1/image.png",
+	}
+
+	if serr := uc.UpdateUser(&userData); serr.IsError() {
+		t.Errorf("Error updating user: %v", serr)
+	}
+	t.Logf("Updated user: %v", testData.Users[1].CtUser)
+
+	userData.CtPpic = ""
+	if serr := uc.UserInfo(&userData); serr.IsError() {
+		t.Errorf("Error querying updated user: %v", serr)
+	}
+	if userData.CtPpic != "org1/pendracon1/image.png" {
+		t.Error("Queried data doesn't match updated data.")
+	}
+}
+
 func TestDelUser(t *testing.T) {
 	uc := connect(t)
 	defer close(uc)
 
-	if serr := uc.DeleteUser(&(testData.Users[0])); serr.IsError() {
+	if serr := uc.DeleteUser(&(testData.Users[1])); serr.IsError() {
 		t.Errorf("Error deleting user info: %v", serr)
 	}
-	t.Logf("Deleted user: %v", testData.Users[0].CtUser)
+	t.Logf("Deleted user: %v", testData.Users[1].CtUser)
+
+	userData := model.User{
+		CtUser: testData.Users[1].CtUser,
+		CtProf: testData.Users[1].CtProf,
+		UEmail: testData.Users[1].UEmail,
+		CtPpic: "org1/pendracon1/image.png",
+	}
+	if serr := uc.UserInfo(&userData); serr.IsError() {
+		t.Errorf("Error querying updated user: %v", serr)
+	}
+	if userData.CtPpic != "org1/pendracon1/image.png" {
+		t.Error("Deleted data returned in query.")
+	}
 }
 
 func close(uc *userClient) {
@@ -80,7 +125,8 @@ func connect(t *testing.T) *userClient {
 func init() {
 	model.ParserConfigPath = "../../config/parameters_config.json"
 	model.ApplicationConfigPath = "../../config/application.properties"
-	cfg, err := config.ContextConfig()
+	var err error
+	cfg, err = config.ContextConfig()
 	if err != nil {
 		util.LogError("", "parameters_test:TestConfig", err)
 	}

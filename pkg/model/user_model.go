@@ -2,6 +2,10 @@ package model
 
 import "fmt"
 
+const (
+	UserExistsError = "Error 1062"
+)
+
 var (
 	NoUserIdError       = UserError{"U01", "User identifier is empty!", nil}
 	NoProfileIdError    = UserError{"U02", "User profile name is empty!", nil}

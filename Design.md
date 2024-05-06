@@ -22,7 +22,7 @@ Cloudtacts includes the following components:
 their contacts.
 4. A web-site containing registration and user pages.
 5. An API Gateway for securely interfacing client components with back end
-services.
+services.(?)
 
 ### Interaction
 - A user first registers with the system through a user registration web page.
@@ -86,6 +86,26 @@ in the database.
 ### Authentication
 When a user authenticates with the application by signing in through the user
 access page, they're prompted for their login identifier and password.
+
+### Error Codes
+When an error occurs while handling a request, one of the following error
+responses is returned:
+
+| Error             | Code | Message                        | Status | Note           |
+| :---------------- | :--- | :----------------------------- | :----- | :------------- |
+| DbQueryError      | D01  | Error querying user info.      | 500    |                |
+| DbScanError       | D02  | Error scanning user info.      | 500    |                |
+| DbResultsError    | D03  | Got unknown results error.     | 500    |                |
+| DbInsertError     | D04  | Error inserting user info.     | 500    |                |
+| DbPrepareError    | D05  | Error preparing statement.     | 500    |                |
+| DbExecuteError    | D06  | Error executing statement.     | 500    |                |
+| DbClientError     | D07  | Error getting user info client.| 500    |                |
+| DbOpenError       | D08  | Error opening user info.       | 500    |                |
+| DbPKeyError       | D09  | Primary key already exists.    | 409    | user exists    |
+| InvalidKeyError   | I01  | Incomplete user info.          | 400    |                |
+| InvalidMsgError   | I02  | Invalid request message.       | 400    |                |
+| InternalReadError | I03  | Error reading request message. | 500    |                |
+| SystemError       | S00  | An internal error has occurred.| 500    |                |
 
 TODO
 

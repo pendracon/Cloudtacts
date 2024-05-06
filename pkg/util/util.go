@@ -97,6 +97,10 @@ func WrappedError(err error, tag string) error {
 	return errors.Wrap(err, tag)
 }
 
+func TextDigestOf(data string) string {
+	return fmt.Sprintf("%x", DigestOf(data))
+}
+
 func DigestOf(data string) []byte {
 	hashValue := sha256.Sum256([]byte(data))
 	return hashValue[:]

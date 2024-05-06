@@ -18,6 +18,8 @@ const (
 	INSERT_USER_STMT string = "INSERT INTO user (ctuser, ctpass, ctprof, uemail, ctppic) VALUES(?, ?, ?, ?, ?)"
 	DELETE_USER_STMT string = "DELETE FROM user WHERE ctuser = ? AND ctprof = ? AND uemail = ?"
 	UPDATE_USER_STMT string = "UPDATE user SET ctpass = ?, ctppic = ?, atoken = ?, llogin = ?, uvalid = ? WHERE ctuser = ? AND ctprof = ? AND uemail = ?"
+
+	HPWD_TAG = "H:"
 )
 
 type UserDBClient interface {

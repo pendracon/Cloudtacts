@@ -13,13 +13,14 @@ var (
 	DbExecuteError    = ServiceError{"D06", "Error executing statement.", nil}
 	DbClientError     = ServiceError{"D07", "Error getting user info client.", nil}
 	DbOpenError       = ServiceError{"D08", "Error opening user info.", nil}
+	DbPKeyError       = ServiceError{"D09", "Primary key already exists.", nil}
 	InvalidKeyError   = ServiceError{"I01", "Incomplete user info.", nil}
 	InvalidMsgError   = ServiceError{"I02", "Invalid request message.", nil}
 	InternalReadError = ServiceError{"I03", "Error reading request message.", nil}
+	SystemError       = ServiceError{"S00", "An internal error has occurred.", nil}
 )
 
 // ServiceError represents a base error result
-//
 type ServiceError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`

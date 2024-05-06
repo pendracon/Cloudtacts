@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 
@@ -14,7 +15,9 @@ import (
 )
 
 const (
-	functionKey    = "CT-Function-Name"
+	functionKeyHeader = "CT-Function-Name"
+	errorCodeHeader   = "CT-Error-Code"
+
 	getUserName    = "GetUser"
 	addUserName    = "AddUser"
 	deleteUserName = "DeleteUser"
@@ -28,6 +31,7 @@ const (
 
 var testMode bool
 var cfg *config.Config
+var statusMap map[string]int
 
 // Function getUserInfo is an HTTP handler
 func getUserInfo(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +40,7 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 	if user, serr := queryUser(w, r, getUserName); !serr.IsError() {
 		fmt.Fprintln(w, fmt.Sprintf(getUserResponse, user.CtUser, user.CtProf, user.UEmail, user.CtPpic, user.LLogin, user.UValid))
 	} else {
+		w.Header().Add(errorCodeHeader, model.SystemError.Code)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("Error reading user info: %v/%v.\n%v", user.CtUser, user.CtProf, serr.Cause)))
 	}
@@ -56,11 +61,25 @@ func addNewUser(w http.ResponseWriter, r *http.Request) {
 				} else {
 					defer auth.CloseUserDBClient(uc)
 
+					if len(user.CtPass) != 66 && !strings.HasPrefix(user.CtPass, auth.HPWD_TAG) {
+						user.CtPass = fmt.Sprintf("%v%v", auth.HPWD_TAG, util.TextDigestOf(user.CtPass))
+					}
 					if serr = (*uc).AddUser(&user); !serr.IsError() {
+						w.WriteHeader(http.StatusCreated)
 						fmt.Fprintln(w, fmt.Sprintf(addUserResponse, user.CtUser, user.CtProf))
 					} else {
-						w.WriteHeader(http.StatusInternalServerError)
-						w.Write([]byte(fmt.Sprintf("Error adding new user: %v/%v.\n", user.CtUser, user.CtProf)))
+						var msg string
+						status := http.StatusInternalServerError
+						if strings.Contains(serr.Cause.Error(), model.UserExistsError) {
+							msg = fmt.Sprintf("Error adding new user: %v/%v - user exists.\n", user.CtUser, user.CtProf)
+							status = http.StatusConflict
+						} else {
+							msg = fmt.Sprintf("Error adding new user: %v/%v.\n", user.CtUser, user.CtProf)
+						}
+						util.LogIt("Cloudtacts", fmt.Sprintf("%v%v", msg, serr))
+						w.Header().Add(errorCodeHeader, serr.Code)
+						w.WriteHeader(status)
+						w.Write([]byte(msg))
 					}
 				}
 			}
@@ -86,6 +105,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 					if serr = (*uc).DeleteUser(&user); !serr.IsError() {
 						fmt.Fprintln(w, fmt.Sprintf(deleteUserResponse, user.CtUser, user.CtProf))
 					} else {
+						w.Header().Add(errorCodeHeader, serr.Code)
 						w.WriteHeader(http.StatusInternalServerError)
 						w.Write([]byte(fmt.Sprintf("Error deleting user: %v/%v.\n", user.CtUser, user.CtProf)))
 					}
@@ -113,6 +133,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 					if serr = (*uc).UpdateUser(&user); !serr.IsError() {
 						fmt.Fprintln(w, fmt.Sprintf(updateUserResponse, user.CtUser, user.CtProf))
 					} else {
+						w.Header().Add(errorCodeHeader, serr.Code)
 						w.WriteHeader(http.StatusInternalServerError)
 						w.Write([]byte(fmt.Sprintf("Error updating user: %v/%v.\n", user.CtUser, user.CtProf)))
 					}
@@ -157,6 +178,7 @@ func getUser(w http.ResponseWriter, body []byte) (model.User, model.ServiceError
 	if err := util.ToUserList(body, &userList); err == nil {
 		return userList.Users[0], model.NoError
 	} else {
+		w.Header().Add(errorCodeHeader, model.SystemError.Code)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Error converting request body.\n"))
 		return model.User{}, model.InvalidMsgError.WithCause(err)
@@ -166,7 +188,7 @@ func getUser(w http.ResponseWriter, body []byte) (model.User, model.ServiceError
 func readRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, model.ServiceError) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		logIt(fmt.Sprintf("Error reading request body:\n%v", body))
+		w.Header().Add(errorCodeHeader, model.SystemError.Code)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Error reading request body.\n"))
 		return nil, model.InternalReadError.WithCause(err)
@@ -175,13 +197,15 @@ func readRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, model.Serv
 }
 
 func verifyRequestFunction(w http.ResponseWriter, r *http.Request, name string) (bool, string) {
-	ok, hval := headerValue(r, functionKey)
+	ok, hval := headerValue(r, functionKeyHeader)
 	if !ok {
+		w.Header().Add(errorCodeHeader, model.SystemError.Code)
 		w.WriteHeader(http.StatusBadRequest) // Bad Request: missing required header
 		w.Write([]byte("Missing reqired header.\n"))
 		return false, ""
 	}
 	if hval != name {
+		w.Header().Add(errorCodeHeader, model.SystemError.Code)
 		w.WriteHeader(http.StatusBadRequest) // Bad Request: wrong function request
 		w.Write([]byte("Wrong function requested.\n"))
 		return false, ""
@@ -232,4 +256,18 @@ func init() {
 		}
 	}
 	cfg = cfgx
+
+	statusMap = make(map[string]int)
+	statusMap[model.DbQueryError.Code] = 500
+	statusMap[model.DbScanError.Code] = 500
+	statusMap[model.DbResultsError.Code] = 500
+	statusMap[model.DbInsertError.Code] = 500
+	statusMap[model.DbPrepareError.Code] = 500
+	statusMap[model.DbExecuteError.Code] = 500
+	statusMap[model.DbClientError.Code] = 500
+	statusMap[model.DbOpenError.Code] = 500
+	statusMap[model.InvalidKeyError.Code] = 400
+	statusMap[model.InvalidMsgError.Code] = 400
+	statusMap[model.InternalReadError.Code] = 500
+	statusMap[model.SystemError.Code] = 500
 }
