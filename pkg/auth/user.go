@@ -16,10 +16,10 @@ import (
 const (
 	SELECT_USER_INFO string = "SELECT ctpass, ctppic, atoken, llogin, uvalid FROM user WHERE ctuser = ? AND ctprof = ? AND uemail = ?"
 	INSERT_USER_STMT string = "INSERT INTO user (ctuser, ctpass, ctprof, uemail, ctppic) VALUES(?, ?, ?, ?, ?)"
+	UPDATE_USER_STMT string = "UPDATE user SET ctpass = ?, ctppic = ?, atoken = ? WHERE ctuser = ? AND ctprof = ? AND uemail = ?"
 	DELETE_USER_STMT string = "DELETE FROM user WHERE ctuser = ? AND ctprof = ? AND uemail = ?"
-	UPDATE_USER_STMT string = "UPDATE user SET ctpass = ?, ctppic = ?, atoken = ?, llogin = ?, uvalid = ? WHERE ctuser = ? AND ctprof = ? AND uemail = ?"
 
-	HPWD_TAG = "H:"
+	UPDATE_USER_STMT_TMPL string = "UPDATE user SET %v = ? WHERE ctuser = ? AND ctprof = ? AND uemail = ?"
 )
 
 type UserDBClient interface {
@@ -37,6 +37,9 @@ type UserDBClient interface {
 
 	// Return host URL of the database.
 	HostUrl() string
+
+	// Closes the client connection.
+	Close()
 }
 
 func (uc *userClient) UserInfo(user *model.User) model.ServiceError {
@@ -120,21 +123,33 @@ func (uc *userClient) DeleteUser(user *model.User) model.ServiceError {
 }
 
 func (uc *userClient) UpdateUser(user *model.User) model.ServiceError {
-	var ferr = model.ServiceError{}
+	var ferr = model.NoError
 
+	var err error
 	if ok, err := validateUserKey(user); !ok {
 		ferr = model.InvalidKeyError.WithCause(err)
 	}
 
-	stmtUpd, err := uc.conn.Prepare(UPDATE_USER_STMT)
-	if err != nil {
-		ferr = model.DbPrepareError.WithCause(err)
+	var stmtUpd *sql.Stmt
+	if ferr == model.NoError {
+		stmtUpd, err = uc.conn.Prepare(UPDATE_USER_STMT)
+		if err != nil {
+			ferr = model.DbPrepareError.WithCause(err)
+		}
 	}
-	defer stmtUpd.Close()
 
-	_, err = stmtUpd.Exec(user.CtPass, user.CtPpic, user.AToken, user.LLogin, user.UValid, user.CtUser, user.CtProf, user.UEmail)
-	if err != nil {
-		ferr = model.DbExecuteError.WithCause(err)
+	if ferr == model.NoError {
+		_, err = stmtUpd.Exec(user.CtPass, user.CtPpic, user.AToken, user.CtUser, user.CtProf, user.UEmail)
+		if err != nil {
+			ferr = model.DbExecuteError.WithCause(err)
+		}
+	}
+
+	if ferr == model.NoError && len(user.LLogin) > 0 {
+		ferr = updateDateTimeColumn(user, uc, "llogin", user.LLogin)
+	}
+	if ferr == model.NoError && len(user.UValid) > 0 {
+		ferr = updateDateTimeColumn(user, uc, "uvalid", user.UValid)
 	}
 
 	return ferr
@@ -142,6 +157,10 @@ func (uc *userClient) UpdateUser(user *model.User) model.ServiceError {
 
 func (uc *userClient) HostUrl() string {
 	return uc.hostUrl
+}
+
+func (uc *userClient) Close() {
+	uc.conn.Close()
 }
 
 func GetDbClient(cfg *config.Config, host, port, database string) (*userClient, model.ServiceError) {
@@ -155,12 +174,6 @@ func GetDbClient(cfg *config.Config, host, port, database string) (*userClient, 
 	serr = initClient(cfg, appDbClient, database)
 
 	return appDbClient, serr
-}
-
-func CloseUserDBClient(client *userClient) {
-	if client != nil {
-		client.conn.Close()
-	}
 }
 
 type userClient struct {
@@ -216,6 +229,37 @@ func initClient(cfg *config.Config, uc *userClient, database string) model.Servi
 	}
 
 	return (model.ServiceError{})
+}
+
+func updateDateTimeColumn(user *model.User, uc *userClient, colName, colVal string) model.ServiceError {
+	var ferr = model.NoError
+
+	var err error
+	var stmtUpd *sql.Stmt
+	if ferr == model.NoError {
+		stmtUpd, err = uc.conn.Prepare(fmt.Sprintf(UPDATE_USER_STMT_TMPL, colName))
+		if err != nil {
+			ferr = model.DbPrepareError.WithCause(err)
+		}
+	}
+
+	dtime := 0
+	if ferr == model.NoError {
+		defer stmtUpd.Close()
+
+		if dtime, err = strconv.Atoi(colVal); err != nil {
+			ferr = model.DatetimeError.WithCause(err)
+		}
+	}
+
+	if ferr == model.NoError {
+		_, err = stmtUpd.Exec(dtime, user.CtUser, user.CtProf, user.UEmail)
+		if err != nil {
+			ferr = model.DbExecuteError.WithCause(err)
+		}
+	}
+
+	return ferr
 }
 
 func clientStats(uc *userClient) string {

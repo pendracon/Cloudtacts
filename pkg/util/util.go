@@ -1,7 +1,7 @@
 package util
 
 import (
-	"crypto/sha256"
+	"Cloudtacts/pkg/model"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"github.com/efficientgo/core/errors"
-
-	"Cloudtacts/pkg/model"
 )
 
 func LoadUserListFile(path string, userList *model.UserList) error {
@@ -95,15 +93,6 @@ func ParseOptions(argSwitch string, argSeparator uint8, args []string) *map[stri
 
 func WrappedError(err error, tag string) error {
 	return errors.Wrap(err, tag)
-}
-
-func TextDigestOf(data string) string {
-	return fmt.Sprintf("%x", DigestOf(data))
-}
-
-func DigestOf(data string) []byte {
-	hashValue := sha256.Sum256([]byte(data))
-	return hashValue[:]
 }
 
 func LogIt(tag string, message string) {

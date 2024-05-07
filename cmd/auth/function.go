@@ -41,7 +41,7 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, fmt.Sprintf(getUserResponse, user.CtUser, user.CtProf, user.UEmail, user.CtPpic, user.LLogin, user.UValid))
 	} else {
 		w.Header().Add(errorCodeHeader, model.SystemError.Code)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(statusMap[model.SystemError.Code])
 		w.Write([]byte(fmt.Sprintf("Error reading user info: %v/%v.\n%v", user.CtUser, user.CtProf, serr.Cause)))
 	}
 }
@@ -50,39 +50,28 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 func addNewUser(w http.ResponseWriter, r *http.Request) {
 	logIt("Executing 'addNewUser'...")
 
-	if ok, _ := verifyRequestFunction(w, r, addUserName); ok {
+	user, uc, serr := connect(w, r, addUserName)
+	if !serr.IsError() {
+		defer uc.Close()
 
-		if body, serr := readRequestBody(w, r); !serr.IsError() {
-
-			if user, serr := getUser(w, body); !serr.IsError() {
-				uc, serr := auth.GetDbClient(cfg, cfg.ValueOf("userdbHostId"), cfg.ValueOf("userdbPortId"), cfg.ValueOf("userdbDatabaseId"))
-				if serr.IsError() {
-					util.LogIt("Cloudtacts", serr.Error())
-				} else {
-					defer auth.CloseUserDBClient(uc)
-
-					if len(user.CtPass) != 66 && !strings.HasPrefix(user.CtPass, auth.HPWD_TAG) {
-						user.CtPass = fmt.Sprintf("%v%v", auth.HPWD_TAG, util.TextDigestOf(user.CtPass))
-					}
-					if serr = (*uc).AddUser(&user); !serr.IsError() {
-						w.WriteHeader(http.StatusCreated)
-						fmt.Fprintln(w, fmt.Sprintf(addUserResponse, user.CtUser, user.CtProf))
-					} else {
-						var msg string
-						status := http.StatusInternalServerError
-						if strings.Contains(serr.Cause.Error(), model.UserExistsError) {
-							msg = fmt.Sprintf("Error adding new user: %v/%v - user exists.\n", user.CtUser, user.CtProf)
-							status = http.StatusConflict
-						} else {
-							msg = fmt.Sprintf("Error adding new user: %v/%v.\n", user.CtUser, user.CtProf)
-						}
-						util.LogIt("Cloudtacts", fmt.Sprintf("%v%v", msg, serr))
-						w.Header().Add(errorCodeHeader, serr.Code)
-						w.WriteHeader(status)
-						w.Write([]byte(msg))
-					}
-				}
+		if user.HasTextPwd() {
+			user.CtPass = user.PwdHash(true)
+		}
+		if serr = uc.AddUser(user); !serr.IsError() {
+			w.WriteHeader(http.StatusCreated)
+			fmt.Fprintln(w, fmt.Sprintf(addUserResponse, user.CtUser, user.CtProf))
+		} else {
+			var msg string
+			status := statusMap[serr.Code]
+			if strings.Contains(serr.Cause.Error(), model.UserExistsError) {
+				msg = fmt.Sprintf("Error adding new user: %v/%v - user exists.\n", user.CtUser, user.CtProf)
+			} else {
+				msg = fmt.Sprintf("Error adding new user: %v/%v.\n", user.CtUser, user.CtProf)
 			}
+			util.LogIt("Cloudtacts", fmt.Sprintf("%v%v", msg, serr))
+			w.Header().Add(errorCodeHeader, serr.Code)
+			w.WriteHeader(status)
+			w.Write([]byte(msg))
 		}
 	}
 }
@@ -91,26 +80,16 @@ func addNewUser(w http.ResponseWriter, r *http.Request) {
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	logIt("Executing 'deleteUser'...")
 
-	if ok, _ := verifyRequestFunction(w, r, deleteUserName); ok {
+	user, uc, serr := connect(w, r, addUserName)
+	if !serr.IsError() {
+		defer uc.Close()
 
-		if body, serr := readRequestBody(w, r); !serr.IsError() {
-
-			if user, serr := getUser(w, body); !serr.IsError() {
-				uc, serr := auth.GetDbClient(cfg, cfg.ValueOf("userdbHostId"), cfg.ValueOf("userdbPortId"), cfg.ValueOf("userdbDatabaseId"))
-				if serr.IsError() {
-					util.LogIt("Cloudtacts", serr.Error())
-				} else {
-					defer auth.CloseUserDBClient(uc)
-
-					if serr = (*uc).DeleteUser(&user); !serr.IsError() {
-						fmt.Fprintln(w, fmt.Sprintf(deleteUserResponse, user.CtUser, user.CtProf))
-					} else {
-						w.Header().Add(errorCodeHeader, serr.Code)
-						w.WriteHeader(http.StatusInternalServerError)
-						w.Write([]byte(fmt.Sprintf("Error deleting user: %v/%v.\n", user.CtUser, user.CtProf)))
-					}
-				}
-			}
+		if serr = uc.DeleteUser(user); !serr.IsError() {
+			fmt.Fprintln(w, fmt.Sprintf(deleteUserResponse, user.CtUser, user.CtProf))
+		} else {
+			w.Header().Add(errorCodeHeader, serr.Code)
+			w.WriteHeader(statusMap[serr.Code])
+			w.Write([]byte(fmt.Sprintf("Error deleting user: %v/%v.\n", user.CtUser, user.CtProf)))
 		}
 	}
 }
@@ -119,57 +98,60 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	logIt("Executing 'updateUser'...")
 
-	if ok, _ := verifyRequestFunction(w, r, updateUserName); ok {
+	user, uc, serr := connect(w, r, addUserName)
+	if !serr.IsError() {
+		defer uc.Close()
 
-		if body, serr := readRequestBody(w, r); !serr.IsError() {
-
-			if user, serr := getUser(w, body); !serr.IsError() {
-				uc, serr := auth.GetDbClient(cfg, cfg.ValueOf("userdbHostId"), cfg.ValueOf("userdbPortId"), cfg.ValueOf("userdbDatabaseId"))
-				if serr.IsError() {
-					util.LogIt("Cloudtacts", serr.Error())
-				} else {
-					defer auth.CloseUserDBClient(uc)
-
-					if serr = (*uc).UpdateUser(&user); !serr.IsError() {
-						fmt.Fprintln(w, fmt.Sprintf(updateUserResponse, user.CtUser, user.CtProf))
-					} else {
-						w.Header().Add(errorCodeHeader, serr.Code)
-						w.WriteHeader(http.StatusInternalServerError)
-						w.Write([]byte(fmt.Sprintf("Error updating user: %v/%v.\n", user.CtUser, user.CtProf)))
-					}
-				}
-			}
+		if serr = uc.UpdateUser(user); !serr.IsError() {
+			fmt.Fprintln(w, fmt.Sprintf(updateUserResponse, user.CtUser, user.CtProf))
+		} else {
+			w.Header().Add(errorCodeHeader, serr.Code)
+			w.WriteHeader(statusMap[serr.Code])
+			w.Write([]byte(fmt.Sprintf("Error updating user: %v/%v.\n", user.CtUser, user.CtProf)))
 		}
 	}
 }
 
-// Function queryUser is an HTTP handler
-func queryUser(w http.ResponseWriter, r *http.Request, funcName string) (*model.User, model.ServiceError) {
+// Function connect verifies the request and returns a corresponding user
+// instance and database connection handle. An instance of ServiceError is
+// returned if an error occurs.
+func connect(w http.ResponseWriter, r *http.Request, requestName string) (*model.User, auth.UserDBClient, model.ServiceError) {
 	var user model.User
-	var serr model.ServiceError
+	var uc auth.UserDBClient
+	serr := model.NoError
 
-	if ok, _ := verifyRequestFunction(w, r, funcName); ok {
+	if ok, _ := verifyRequestFunction(w, r, requestName); ok {
 
 		if body, serr := readRequestBody(w, r); !serr.IsError() {
 
 			if user, serr = getUser(w, body); !serr.IsError() {
-				uc, serr := auth.GetDbClient(cfg, cfg.ValueOf("userdbHostId"), cfg.ValueOf("userdbPortId"), cfg.ValueOf("userdbDatabaseId"))
-
-				util.LogIt("Cloudtacts", fmt.Sprintf("Got client: %v", uc))
-
-				if !serr.IsError() {
-					defer auth.CloseUserDBClient(uc)
-
-					serr = (*uc).UserInfo(&user)
-					if serr.IsError() {
-						logIt(fmt.Sprintf("Query error: %v", serr))
-					}
+				uc, serr = auth.GetDbClient(cfg, cfg.ValueOf("userdbHostId"), cfg.ValueOf("userdbPortId"), cfg.ValueOf("userdbDatabaseId"))
+				if serr.IsError() {
+					util.LogIt("Cloudtacts", serr.Error())
 				}
 			}
 		}
 	}
 
-	return &user, serr
+	return &user, uc, serr
+}
+
+// Function queryUser is an HTTP handler
+func queryUser(w http.ResponseWriter, r *http.Request, funcName string) (*model.User, model.ServiceError) {
+	user, uc, serr := connect(w, r, funcName)
+
+	util.LogIt("Cloudtacts", fmt.Sprintf("Got client: %v", uc))
+
+	if !serr.IsError() {
+		defer uc.Close()
+
+		serr = uc.UserInfo(user)
+		if serr.IsError() {
+			logIt(fmt.Sprintf("Query error: %v", serr))
+		}
+	}
+
+	return user, serr
 }
 
 func getUser(w http.ResponseWriter, body []byte) (model.User, model.ServiceError) {
@@ -179,7 +161,7 @@ func getUser(w http.ResponseWriter, body []byte) (model.User, model.ServiceError
 		return userList.Users[0], model.NoError
 	} else {
 		w.Header().Add(errorCodeHeader, model.SystemError.Code)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(statusMap[model.SystemError.Code])
 		w.Write([]byte("Error converting request body.\n"))
 		return model.User{}, model.InvalidMsgError.WithCause(err)
 	}
@@ -188,8 +170,8 @@ func getUser(w http.ResponseWriter, body []byte) (model.User, model.ServiceError
 func readRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, model.ServiceError) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		w.Header().Add(errorCodeHeader, model.SystemError.Code)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Add(errorCodeHeader, model.InternalReadError.Code)
+		w.WriteHeader(statusMap[model.InternalReadError.Code])
 		w.Write([]byte("Error reading request body.\n"))
 		return nil, model.InternalReadError.WithCause(err)
 	}
@@ -199,14 +181,14 @@ func readRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, model.Serv
 func verifyRequestFunction(w http.ResponseWriter, r *http.Request, name string) (bool, string) {
 	ok, hval := headerValue(r, functionKeyHeader)
 	if !ok {
-		w.Header().Add(errorCodeHeader, model.SystemError.Code)
-		w.WriteHeader(http.StatusBadRequest) // Bad Request: missing required header
+		w.Header().Add(errorCodeHeader, model.InvalidMsgError.Code)
+		w.WriteHeader(statusMap[model.InvalidMsgError.Code]) // Bad Request: missing required header
 		w.Write([]byte("Missing reqired header.\n"))
 		return false, ""
 	}
 	if hval != name {
-		w.Header().Add(errorCodeHeader, model.SystemError.Code)
-		w.WriteHeader(http.StatusBadRequest) // Bad Request: wrong function request
+		w.Header().Add(errorCodeHeader, model.InvalidMsgError.Code)
+		w.WriteHeader(statusMap[model.InvalidMsgError.Code]) // Bad Request: wrong function request
 		w.Write([]byte("Wrong function requested.\n"))
 		return false, ""
 	}
@@ -270,4 +252,5 @@ func init() {
 	statusMap[model.InvalidMsgError.Code] = 400
 	statusMap[model.InternalReadError.Code] = 500
 	statusMap[model.SystemError.Code] = 500
+	statusMap[model.DatetimeError.Code] = 500
 }

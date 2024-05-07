@@ -43,6 +43,22 @@
 			"description": "Name of the database containing the user information table, e.g.: 'cloudtacts'."
 		},
 		{
+			"optionId": "userdbLoginId",
+			"cliArgument": "userdbLogin",
+			"environmentVar": "CT_USERDB_LOGIN_ID",
+			"propertyName": "user.auth.username",
+			"defaultVal": "root",
+			"description": "System account or user login name for ihe user information database."
+		},
+		{
+			"optionId": "userdbCredsId",
+			"cliArgument": "userdbCreds",
+			"environmentVar": "CT_USERDB_CREDENTIALS",
+			"propertyName": "user.auth.password",
+			"defaultVal": "userMustProvide",
+			"description": "System account or user login passowrd for ihe user information database."
+		},
+		{
 			"optionId": "userdbFunctionPortId",
 			"cliArgument": "userdbFunctionPort",
 			"environmentVar": "CT_USERDB_FUNCTION_PORT",

@@ -17,9 +17,11 @@ func TestParse(t *testing.T) {
 func init() {
 	model.ParserConfigPath = "../../config/parameters_config.json"
 	model.ApplicationConfigPath = "../../config/application.properties"
-	cfg, err := ContextConfig()
+	var ccfg *Config
+	ccfg, err := ContextConfig()
 	if err != nil {
 		util.LogError("", "parameters_test:TestConfig", err)
 	}
+	cfg = ccfg
 	util.LogIt("", fmt.Sprintf("Parsed configuration = %v", cfg.IsParsed()))
 }

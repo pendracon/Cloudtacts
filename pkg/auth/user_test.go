@@ -16,13 +16,13 @@ func TestNewUserDBClient(t *testing.T) {
 	uc := connect(t)
 	t.Logf("Got DB client: %v\n", uc.HostUrl())
 
-	close(uc)
+	uc.Close()
 	t.Log("Closed DB client.\n")
 }
 
 func TestUserInfo(t *testing.T) {
 	uc := connect(t)
-	defer close(uc)
+	defer uc.Close()
 
 	userData := model.User{
 		CtUser: testData.Users[0].CtUser,
@@ -34,14 +34,14 @@ func TestUserInfo(t *testing.T) {
 	}
 	t.Logf("testData = %v", testData.Users[0])
 	t.Logf("userData = %v", userData)
-	if testData.Users[0] != userData {
+	if !testData.Users[0].Equals(&userData) {
 		t.Error("Queried data doesn't match test data.")
 	}
 }
 
 func TestAddUser(t *testing.T) {
 	uc := connect(t)
-	defer close(uc)
+	defer uc.Close()
 
 	if serr := uc.AddUser(&(testData.Users[1])); serr.IsError() {
 		t.Errorf("Error adding user: %v", serr)
@@ -56,14 +56,14 @@ func TestAddUser(t *testing.T) {
 	if serr := uc.UserInfo(&userData); serr.IsError() {
 		t.Errorf("Error querying added user: %v", serr)
 	}
-	if testData.Users[1] != userData {
+	if !testData.Users[1].Equals(&userData) {
 		t.Error("Queried data doesn't match test data.")
 	}
 }
 
 func TestUpdateUser(t *testing.T) {
 	uc := connect(t)
-	defer close(uc)
+	defer uc.Close()
 
 	userData := model.User{
 		CtUser: testData.Users[1].CtUser,
@@ -82,35 +82,32 @@ func TestUpdateUser(t *testing.T) {
 		t.Errorf("Error querying updated user: %v", serr)
 	}
 	if userData.CtPpic != "org1/pendracon1/image.png" {
-		t.Error("Queried data doesn't match updated data.")
+		t.Error("Updated data not returned in query.")
 	}
 }
 
 func TestDelUser(t *testing.T) {
 	uc := connect(t)
-	defer close(uc)
-
-	if serr := uc.DeleteUser(&(testData.Users[1])); serr.IsError() {
-		t.Errorf("Error deleting user info: %v", serr)
-	}
-	t.Logf("Deleted user: %v", testData.Users[1].CtUser)
+	defer uc.Close()
 
 	userData := model.User{
 		CtUser: testData.Users[1].CtUser,
 		CtProf: testData.Users[1].CtProf,
 		UEmail: testData.Users[1].UEmail,
-		CtPpic: "org1/pendracon1/image.png",
 	}
+
+	if serr := uc.DeleteUser(&userData); serr.IsError() {
+		t.Errorf("Error deleting user info: %v", serr)
+	}
+	t.Logf("Deleted user: %v", testData.Users[1].CtUser)
+
 	if serr := uc.UserInfo(&userData); serr.IsError() {
 		t.Errorf("Error querying updated user: %v", serr)
 	}
-	if userData.CtPpic != "org1/pendracon1/image.png" {
+	fmt.Printf("Queried back data: %v\n", userData)
+	if userData.CtPpic != "" {
 		t.Error("Deleted data returned in query.")
 	}
-}
-
-func close(uc *userClient) {
-	CloseUserDBClient(uc)
 }
 
 func connect(t *testing.T) *userClient {
