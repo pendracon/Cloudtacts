@@ -18,7 +18,7 @@ var (
 	InvalidMsgError   = ServiceError{"I02", "Invalid request message.", nil}
 	InternalReadError = ServiceError{"I03", "Error reading request message.", nil}
 	SystemError       = ServiceError{"S00", "An internal error has occurred.", nil}
-	DatetimeError     = ServiceError{"S01", "A datetime conversion error has occurred.", nil}
+	DatetimeError     = ServiceError{"S01", "A datetime error has occurred.", nil}
 )
 
 // ServiceError represents a base error result
