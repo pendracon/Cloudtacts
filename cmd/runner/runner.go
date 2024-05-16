@@ -8,6 +8,7 @@ import (
 	"github.com/GoogleCloudPlatform/functions-framework-go/testdata/conformance/nondeclarative"
 
 	"Cloudtacts/pkg/config"
+	"Cloudtacts/pkg/model"
 	"Cloudtacts/pkg/util"
 )
 
@@ -19,7 +20,7 @@ func main() {
 		util.LogError("CloudtactsRunner", "Failed to parse configuration.", err)
 	}
 
-	port := cfg.ValueOfWithDefault("userdbFunctionPortId", "8088")
+	port := cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_PORT, "8088")
 
 	if err := funcframework.RegisterHTTPFunctionContext(cfg.Context(), "/", nondeclarative.HTTP); err != nil {
 		util.LogError("CloudtactsRunner", "Failed to register function context.", err)

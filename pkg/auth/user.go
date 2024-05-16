@@ -186,7 +186,7 @@ func initClient(cfg *config.Config, uc *userClient, database string) model.Servi
 	var err error
 
 	if uc.hostUrl != "" {
-		uc.conn, err = sql.Open("mysql", fmt.Sprintf("root:devpass@tcp(%v)/%v?tls=skip-verify&autocommit=true&parseTime=true", uc.hostUrl, database))
+		uc.conn, err = sql.Open("mysql", fmt.Sprintf("%v:%v@tcp(%v)/%v?tls=skip-verify&autocommit=true&parseTime=true", cfg.ValueOf(model.KEY_USERDB_LOGIN), cfg.ValueOf(model.KEY_USERDB_PASSWORD), uc.hostUrl, database))
 
 		if err != nil {
 			serr = model.DbOpenError.WithCause(err)
@@ -194,7 +194,7 @@ func initClient(cfg *config.Config, uc *userClient, database string) model.Servi
 			traceIt(cfg, fmt.Sprintf("DB client using user database on host %v.", uc.hostUrl))
 		}
 	} else {
-		uc.conn, err = sql.Open("mysql", "root:password@tcp(127.0.0.1:3306)/cloudtacts")
+		uc.conn, err = sql.Open("mysql", fmt.Sprintf("%v:%v@tcp(127.0.0.1:3306)/cloudtacts", cfg.ValueOf(model.KEY_USERDB_LOGIN), cfg.ValueOf(model.KEY_USERDB_PASSWORD)))
 
 		if err != nil {
 			serr = model.DbOpenError.WithCause(err)
@@ -204,22 +204,22 @@ func initClient(cfg *config.Config, uc *userClient, database string) model.Servi
 	}
 
 	if serr == (model.ServiceError{}) {
-		if ival, err := strconv.Atoi(cfg.ValueOfWithDefault("userdbMaxPoolConnectionsId", "-1")); err == nil {
+		if ival, err := strconv.Atoi(cfg.ValueOfWithDefault(model.KEY_USERDB_MAX_POOL, "-1")); err == nil {
 			uc.conn.SetMaxOpenConns(ival)
 		} else {
 			uc.conn.SetMaxOpenConns(0)
 		}
-		if ival, err := strconv.Atoi(cfg.ValueOfWithDefault("userdbMaxIdleConnectionsId", "2")); err == nil {
+		if ival, err := strconv.Atoi(cfg.ValueOfWithDefault(model.KEY_USERDB_MAX_IDLE, "2")); err == nil {
 			uc.conn.SetMaxIdleConns(ival)
 		} else {
 			uc.conn.SetMaxIdleConns(2)
 		}
-		if ival, err := strconv.Atoi(cfg.ValueOfWithDefault("userdbMaxIdleTimeId", "300")); err == nil {
+		if ival, err := strconv.Atoi(cfg.ValueOfWithDefault(model.KEY_USERDB_MAX_IDTM, "300")); err == nil {
 			uc.conn.SetConnMaxIdleTime(time.Second * time.Duration(ival))
 		} else {
 			uc.conn.SetConnMaxIdleTime(time.Second * 300)
 		}
-		if ival, err := strconv.Atoi(cfg.ValueOfWithDefault("userdbMaxLifeTimeId", "30")); err == nil {
+		if ival, err := strconv.Atoi(cfg.ValueOfWithDefault(model.KEY_USERDB_MAX_LFTM, "30")); err == nil {
 			uc.conn.SetConnMaxLifetime(time.Minute * time.Duration(ival))
 		} else {
 			uc.conn.SetConnMaxLifetime(time.Minute * 30)
@@ -282,7 +282,7 @@ func validateUserKey(user *model.User) (bool, model.UserError) {
 }
 
 func traceIt(cfg *config.Config, message string) {
-	if cfg.ValueOfWithDefault("userdbTestModeId", "false") == "true" {
+	if cfg.ValueOfWithDefault(model.KEY_USERDB_TEST_MODE, "false") == "true" {
 		util.LogIt("Cloudtacts", message)
 	}
 }

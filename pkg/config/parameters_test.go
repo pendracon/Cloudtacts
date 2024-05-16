@@ -11,7 +11,7 @@ import (
 var cfg *Config
 
 func TestParse(t *testing.T) {
-	t.Logf("Got user.auth.testMode = %v", cfg.ValueOf("user.auth.testMode"))
+	t.Logf("Got user.auth.testMode = %v", cfg.ValueOf(model.KEY_USERDB_TEST_MODE))
 }
 
 func init() {

@@ -3,26 +3,26 @@ Package config consolidates and provides access to application configuration
 data through the following methods with the given order of precedence (highest
 to lowest):
 
-	1. command line arguments, e.g.: --testMode=true
-	2. environment variables, e.g.: APP_TEST_MODE=true
-	3. configuration file properties, e.g.: app.testMode=true
+ 1. command line arguments, e.g.: --testMode=true
+ 2. environment variables, e.g.: APP_TEST_MODE=true
+ 3. configuration file properties, e.g.: app.testMode=true
 
 The configuration parser is itself configured through parser configuration file
 at: ./config/parameters_config.json, relative to the project root. The parser
 configuration file has the following structure:
 
-{
-	"argSwitch": "-",
-	"argSeparator": "SPACE",
-	"parameters": [{
-		"optionId": "configFileId"
-		"cliArgument": "configFile",
-		"environmentVar": "APP_CONFIG_FILE",
-		"propertyName": "app.config.file",
-		"defaultVal": "../../config/application.properties",
-		"description": "Application configuration properties file."
-	}]
-}
+	{
+		"argSwitch": "-",
+		"argSeparator": "SPACE",
+		"parameters": [{
+			"optionId": "configFileId"
+			"cliArgument": "configFile",
+			"environmentVar": "APP_CONFIG_FILE",
+			"propertyName": "app.config.file",
+			"defaultVal": "../../config/application.properties",
+			"description": "Application configuration properties file."
+		}]
+	}
 
 Once parser is successfully configured, the package looks for its default
 application configuration file at: ./config/application.properties, relative to
@@ -143,9 +143,9 @@ func (cfg *Config) Context() context.Context {
 // their default values if not assigned a value by the user. User assigned
 // values are given the following configuration precedence, from highest to
 // lowest:
-// 	1. CLI arguments
-// 	2. Environment variables
-// 	3. Configuration properties
+//  1. CLI arguments
+//  2. Environment variables
+//  3. Configuration properties
 func (cfg *Config) Parse() (bool, error) {
 	if !cfg.parserLoaded {
 		// Load the parser configuration

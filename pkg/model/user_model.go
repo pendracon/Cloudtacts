@@ -10,6 +10,7 @@ const (
 	UserExistsError = "Error 1062"
 
 	HPWD_TAG = "H:"
+	OBJK_TAG = "K:"
 )
 
 var (
@@ -28,6 +29,7 @@ type User struct {
 	CtPass string `json: "ctpass"`
 	CtProf string `json: "ctprof"`
 	CtPpic string `json: "ctppic"`
+	CtImgt string `json: "ctimgt"`
 	UEmail string `json: "uemail"`
 	AToken string `json: "atoken"`
 	LLogin string `json: "llogin"`
@@ -60,6 +62,10 @@ func (u *User) PwdHash(tagged bool) string {
 
 func (u *User) HasTextPwd() bool {
 	return !strings.HasPrefix(u.CtPass, HPWD_TAG)
+}
+
+func (u *User) HasProfilePicKey() bool {
+	return !strings.HasPrefix(u.CtPpic, OBJK_TAG)
 }
 
 func (u *User) Equals(user *User) bool {

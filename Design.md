@@ -41,17 +41,21 @@ User information stored in the registration database includes:
 - ctprof: the user's profile name (displayed on site)       (max length 20)
 - ctppic: the user's profile image key in object storage    (max length 52)
 - uemail: the user's e-mail address                         (max length 50)
-- atoken: the user's temporary access token                 (length 20)
+- atoken: the user's temporary access token                 (length 36)
 - llogin: the user's last login timestamp                   (YYYYMMDDhhmmss)
 - uvalid: the user's registration validation timestamp      (YYYYMMDDhhmmss)
 
 When a user registers with the site as a new user, they're prompted for a user
 identifier, password, and e-mail address, along with a profile name and an
 optional profile picture in GIF, JPEG, or PNG format to display on the user
-access page.
+access page. All images exchanged between the client and service are sent in
+Base64 encoded form.
 
 A user's login identifier, profile name, and e-mail address are all validated
-to be unique within the system. Once validated, Cloudtacts:
+to be *collectively* unique within the system. This allows, e.g., multiple
+users of a common profile ("organization") profile with a shared e-mail
+address, a single user to have separate accounts identified by the their e-mail
+addresses, etc. Once validated, Cloudtacts:
 
 1. generates a temporary access token with a 15 minute expiration, and
 2. saves the user's information and temporary access token in the database, and

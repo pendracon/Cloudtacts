@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS cloudtacts.user
 	ctprof	VARCHAR(20) NOT NULL,
 	uemail	VARCHAR(50) NOT NULL,
 	ctppic	VARCHAR(52),
-	atoken	CHAR(20),
+	atoken	CHAR(36),
 	llogin	DATETIME,
 	uvalid	DATETIME,
 	CONSTRAINT PRIMARY KEY (ctuser, ctprof, uemail)

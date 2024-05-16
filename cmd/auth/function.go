@@ -11,6 +11,7 @@ import (
 	"Cloudtacts/pkg/auth"
 	"Cloudtacts/pkg/config"
 	"Cloudtacts/pkg/model"
+	"Cloudtacts/pkg/storage"
 	"Cloudtacts/pkg/util"
 )
 
@@ -18,10 +19,10 @@ const (
 	functionKeyHeader = "CT-Function-Name"
 	errorCodeHeader   = "CT-Error-Code"
 
-	getUserName    = "GetUser"
-	addUserName    = "AddUser"
-	deleteUserName = "DeleteUser"
-	updateUserName = "UpdateUser"
+	getUserNameDef    = "GetUser"
+	addUserNameDef    = "AddUser"
+	deleteUserNameDef = "DeleteUser"
+	updateUserNameDef = "UpdateUser"
 
 	getUserResponse    = "{'username': '%v', 'profile': '%v', 'email': '%v', 'imageLoc': '%v', 'lastOn': '%v', 'validatedOn': '%v'}"
 	addUserResponse    = "{'username': '%v', 'profile': '%v', 'result': 'added'}"
@@ -37,7 +38,7 @@ var statusMap map[string]int
 func getUserInfo(w http.ResponseWriter, r *http.Request) {
 	logIt("Executing 'getUserInfo'...")
 
-	if user, serr := queryUser(w, r, getUserName); !serr.IsError() {
+	if user, serr := queryUser(w, r, cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_GET, getUserNameDef)); !serr.IsError() {
 		fmt.Fprintln(w, fmt.Sprintf(getUserResponse, user.CtUser, user.CtProf, user.UEmail, user.CtPpic, user.LLogin, user.UValid))
 	} else {
 		w.Header().Add(errorCodeHeader, model.SystemError.Code)
@@ -50,14 +51,23 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 func addNewUser(w http.ResponseWriter, r *http.Request) {
 	logIt("Executing 'addNewUser'...")
 
-	user, uc, serr := connect(w, r, addUserName)
+	user, uc, serr := connect(w, r, cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_ADD, addUserNameDef))
 	if !serr.IsError() {
 		defer uc.Close()
 
 		if user.HasTextPwd() {
 			user.CtPass = user.PwdHash(true)
 		}
-		if serr = uc.AddUser(user); !serr.IsError() {
+
+		if len(user.CtPpic) > 0 && !user.HasProfilePicKey() {
+			_, serr = storage.SaveProfilePic(cfg, user)
+		}
+
+		if !serr.IsError() {
+			serr = uc.AddUser(user)
+		}
+
+		if !serr.IsError() {
 			w.WriteHeader(http.StatusCreated)
 			fmt.Fprintln(w, fmt.Sprintf(addUserResponse, user.CtUser, user.CtProf))
 		} else {
@@ -80,7 +90,7 @@ func addNewUser(w http.ResponseWriter, r *http.Request) {
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	logIt("Executing 'deleteUser'...")
 
-	user, uc, serr := connect(w, r, addUserName)
+	user, uc, serr := connect(w, r, cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_DEL, deleteUserNameDef))
 	if !serr.IsError() {
 		defer uc.Close()
 
@@ -98,7 +108,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	logIt("Executing 'updateUser'...")
 
-	user, uc, serr := connect(w, r, addUserName)
+	user, uc, serr := connect(w, r, cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_UPD, updateUserNameDef))
 	if !serr.IsError() {
 		defer uc.Close()
 
@@ -125,7 +135,7 @@ func connect(w http.ResponseWriter, r *http.Request, requestName string) (*model
 		if body, serr := readRequestBody(w, r); !serr.IsError() {
 
 			if user, serr = getUser(w, body); !serr.IsError() {
-				uc, serr = auth.GetDbClient(cfg, cfg.ValueOf("userdbHostId"), cfg.ValueOf("userdbPortId"), cfg.ValueOf("userdbDatabaseId"))
+				uc, serr = auth.GetDbClient(cfg, cfg.ValueOf(model.KEY_USERDB_HOST_IP), cfg.ValueOf(model.KEY_USERDB_PORT_NUM), cfg.ValueOf(model.KEY_USERDB_DATABASE))
 				if serr.IsError() {
 					util.LogIt("Cloudtacts", serr.Error())
 				}
@@ -216,13 +226,18 @@ func init() {
 		util.LogError("Cloudtacts", "function - Failed to parse configuration.", err)
 	}
 	util.LogIt("Cloudtacts", fmt.Sprintf("Parsed configuration = %v", cfgx.IsParsed()))
-	testMode = (cfgx.ValueOfWithDefault("userdbTestModeId", "false") == "true")
+	testMode = (cfgx.ValueOfWithDefault(model.KEY_USERDB_TEST_MODE, "false") == "true")
 
 	// Register an HTTP function with the Functions Framework
-	targetList := [4]string{getUserName, addUserName, deleteUserName, updateUserName}
+	targetList := [4][2]string{
+		{model.KEY_AUTH_FUNCTION_GET, getUserNameDef},
+		{model.KEY_AUTH_FUNCTION_ADD, addUserNameDef},
+		{model.KEY_AUTH_FUNCTION_DEL, deleteUserNameDef},
+		{model.KEY_AUTH_FUNCTION_UPD, updateUserNameDef},
+	}
 	for _, targetName := range targetList {
-		target := cfgx.ValueOfWithDefault(fmt.Sprintf("userdb%vId", targetName), targetName)
-		switch targetName {
+		target := cfgx.ValueOfWithDefault(targetName[0], targetName[1])
+		switch targetName[1] {
 		case "GetUser":
 			logIt(fmt.Sprintf("Binding function to target '%v'->'getUserInfo'.", target))
 			functions.HTTP(target, getUserInfo)

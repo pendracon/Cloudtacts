@@ -5,22 +5,24 @@ import (
 	"os"
 )
 
-// Constant APP_CONFIG_ID provides the default config file argument
-// identifier.
-const APP_CONFIG_ID = "configFileId"
+const (
+	// Constant APP_CONFIG_ID provides the default config file argument
+	// identifier.
+	APP_CONFIG_ID = "configFileId"
 
-// Constant PARSER_CONFIG_FILE provides the default location of the parser
-// configuration file, relative to the 'config' package.
-const PARSER_CONFIG_FILE = "./config/parameters_config.json"
+	// Constant PARSER_CONFIG_FILE provides the default location of the parser
+	// configuration file, relative to the 'config' package.
+	PARSER_CONFIG_FILE = "./config/parameters_config.json"
 
-// Constant APPLICATION_CONFIG_FILE provides the default location of the
-// application configuration file, relative to the 'config' package.
-const APPLICATION_CONFIG_FILE = "./config/application.properties"
+	// Constant APPLICATION_CONFIG_FILE provides the default location of the
+	// application configuration file, relative to the 'config' package.
+	APPLICATION_CONFIG_FILE = "./config/application.properties"
 
-// Constant USER_MUST_PROVIDE ("userMustProvide") serves as default value
-// for any parameter not assigned a value through configuration and which is
-// not otherwise assigned a default value.
-const USER_MUST_PROVIDE = "userMustProvide"
+	// Constant USER_MUST_PROVIDE ("userMustProvide") serves as default value
+	// for any parameter not assigned a value through configuration and which is
+	// not otherwise assigned a default value.
+	USER_MUST_PROVIDE = "userMustProvide"
+)
 
 // ApplicationConfig represents a loaded and parsed application configuration.
 type ApplicationConfig interface {

@@ -20,7 +20,7 @@ buildir:
 
 runner:
 	cp cmd/auth/function.go $(ODIR)
-	cp cmd/main/runner.go $(ODIR)
+	cp cmd/runner/runner.go $(ODIR)
 	GOOS=$(GOOS) $(CC) $(FLAGS) -o $(DDIR)/$(RUNNER_BIN) $(ODIR)/*.go
 
 localdeploy:

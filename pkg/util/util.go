@@ -1,7 +1,6 @@
 package util
 
 import (
-	"Cloudtacts/pkg/model"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/efficientgo/core/errors"
+
+	"Cloudtacts/pkg/model"
 )
 
 func LoadUserListFile(path string, userList *model.UserList) error {
@@ -89,6 +90,10 @@ func ParseOptions(argSwitch string, argSeparator uint8, args []string) *map[stri
 	}
 
 	return &opts
+}
+
+func StoreProfilePicture(user *model.User) {
+
 }
 
 func WrappedError(err error, tag string) error {

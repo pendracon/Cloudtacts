@@ -111,7 +111,7 @@ func TestDelUser(t *testing.T) {
 }
 
 func connect(t *testing.T) *userClient {
-	uc, serr := GetDbClient(cfg, cfg.ValueOf("userdbHostId"), cfg.ValueOf("userdbPortId"), cfg.ValueOf("userdbDatabaseId"))
+	uc, serr := GetDbClient(cfg, cfg.ValueOf(model.KEY_USERDB_HOST_IP), cfg.ValueOf(model.KEY_USERDB_PORT_NUM), cfg.ValueOf(model.KEY_USERDB_DATABASE))
 	if serr.IsError() {
 		t.Errorf("Error getting DB client: %v", serr)
 	}

@@ -11,6 +11,22 @@
 			"description": "Application configuration properties file."
 		},
 		{
+			"optionId": "cloudRegionId",
+			"cliArgument": "cloudRegion",
+			"environmentVar": "CT_CLOUD_REGION",
+			"propertyName": "cloud.region",
+			"defaultVal": "userMustProvide",
+			"description": "Region identifier for the cloud region where project is deployed."
+		},
+		{
+			"optionId": "cloudProjectId",
+			"cliArgument": "cloudProject",
+			"environmentVar": "CT_CLOUD_PROJECT_ID",
+			"propertyName": "cloud.project",
+			"defaultVal": "userMustProvide",
+			"description": "Cloud project owning the project's resources."
+		},
+		{
 			"optionId": "userdbTestModeId",
 			"cliArgument": "userdbTestMode",
 			"environmentVar": "CT_USERDB_TEST_MODE",
@@ -22,7 +38,7 @@
 			"optionId": "userdbHostId",
 			"cliArgument": "userdbHost",
 			"environmentVar": "CT_USERDB_HOST_IP",
-			"propertyName": "user.auth.host",
+			"propertyName": "user.auth.db.host",
 			"defaultVal": "vtis-cloudtacts-userdb-mysql",
 			"description": "Name or IP of host containing the user information table, e.g.: 'vtis-cloudtacts-userdb-mysql'."
 		},
@@ -30,7 +46,7 @@
 			"optionId": "userdbPortId",
 			"cliArgument": "userdbPort",
 			"environmentVar": "CT_USERDB_PORT_NUM",
-			"propertyName": "user.auth.port",
+			"propertyName": "user.auth.db.port",
 			"defaultVal": "3306",
 			"description": "TCP port number of the service containing the user information table, e.g.: '3306'."
 		},
@@ -38,7 +54,7 @@
 			"optionId": "userdbDatabaseId",
 			"cliArgument": "userdbDatabase",
 			"environmentVar": "CT_USERDB_DATABASE",
-			"propertyName": "user.auth.database",
+			"propertyName": "user.auth.db.database",
 			"defaultVal": "cloudtacts",
 			"description": "Name of the database containing the user information table, e.g.: 'cloudtacts'."
 		},
@@ -46,7 +62,7 @@
 			"optionId": "userdbLoginId",
 			"cliArgument": "userdbLogin",
 			"environmentVar": "CT_USERDB_LOGIN_ID",
-			"propertyName": "user.auth.username",
+			"propertyName": "user.auth.db.username",
 			"defaultVal": "root",
 			"description": "System account or user login name for ihe user information database."
 		},
@@ -54,9 +70,17 @@
 			"optionId": "userdbCredsId",
 			"cliArgument": "userdbCreds",
 			"environmentVar": "CT_USERDB_CREDENTIALS",
-			"propertyName": "user.auth.password",
+			"propertyName": "user.auth.db.password",
 			"defaultVal": "userMustProvide",
 			"description": "System account or user login passowrd for ihe user information database."
+		},
+		{
+			"optionId": "userdbFunctionHostId",
+			"cliArgument": "userdbFunctionHost",
+			"environmentVar": "CT_USERDB_FUNCTION_HOST",
+			"propertyName": "user.auth.function.host",
+			"defaultVal": "localhost",
+			"description": "The auth function host name or IP address."
 		},
 		{
 			"optionId": "userdbFunctionPortId",
@@ -129,6 +153,14 @@
 			"propertyName": "user.auth.max.lifeTime",
 			"defaultVal": "30",
 			"description": "Maximum time in minutes for a connection to live."
+		},
+		{
+			"optionId": "storageBucketNameId",
+			"cliArgument": "storageBucketName",
+			"environmentVar": "CT_STORAGE_BUCKET_NAME",
+			"propertyName": "storage.bucketName",
+			"defaultVal": "userMustProvide",
+			"description": "Object storage bucket name to use by the application."
 		}
 	]
 }
