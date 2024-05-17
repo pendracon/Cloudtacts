@@ -59,6 +59,25 @@ func LoadParserConfig(parms *model.ParserConfig) error {
 	return nil
 }
 
+func ImageFileType(fileName string) string {
+	var itype string
+
+	nameParts := strings.Split(strings.ToLower(fileName), ".")
+	switch nameParts[len(nameParts)-1] {
+	case "gif":
+		itype = "gif"
+	case "jpg", "jpeg":
+		itype = "jpg"
+	case "png":
+		itype = "png"
+	default:
+		// TODO: try an determine from image mime.type
+		itype = "unk"
+	}
+
+	return itype
+}
+
 func ToUserList(data []byte, userList *model.UserList) error {
 	err := json.Unmarshal(data, userList)
 	if err != nil {

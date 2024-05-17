@@ -104,18 +104,7 @@ func loadImage(cfg *config.Config) ([]byte, string, model.ServiceError) {
 			serr = model.ClientImageError.WithCause(err)
 		}
 		if !cfg.AssignedValue(model.KEY_CLIENT_IMAGE_TYPE) {
-			nameParts := strings.Split(strings.ToLower(ifileName), ".")
-			switch nameParts[len(nameParts)-1] {
-			case "gif":
-				itype = "gif"
-			case "jpg", "jpeg":
-				itype = "jpg"
-			case "png":
-				itype = "png"
-			default:
-				// TODO: try an determine from image mime.type
-				itype = "unk"
-			}
+			itype = util.ImageFileType(ifileName)
 		}
 	}
 

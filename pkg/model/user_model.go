@@ -92,6 +92,22 @@ func (u *User) Equals(user *User) bool {
 	return eq
 }
 
+func (u *User) Clone() *User {
+	user := new(User)
+
+	user.CtUser = u.CtUser
+	user.CtPass = u.CtPass
+	user.CtProf = u.CtProf
+	user.CtPpic = u.CtPpic
+	user.CtImgt = u.CtImgt
+	user.UEmail = u.UEmail
+	user.AToken = u.AToken
+	user.LLogin = u.LLogin
+	user.UValid = u.UValid
+
+	return user
+}
+
 func (err UserError) Error() string {
 	if err.Cause == nil {
 		return fmt.Sprintf("%v: %v", err.Code, err.Message)

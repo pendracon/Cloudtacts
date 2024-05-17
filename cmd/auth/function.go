@@ -38,7 +38,7 @@ var statusMap map[string]int
 func getUserInfo(w http.ResponseWriter, r *http.Request) {
 	logIt("Executing 'getUserInfo'...")
 
-	if user, serr := queryUser(w, r, cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_GET, getUserNameDef)); !serr.IsError() {
+	if user, serr := findUser(w, r, cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_GET, getUserNameDef)); !serr.IsError() {
 		fmt.Fprintln(w, fmt.Sprintf(getUserResponse, user.CtUser, user.CtProf, user.UEmail, user.CtPpic, user.LLogin, user.UValid))
 	} else {
 		w.Header().Add(errorCodeHeader, model.SystemError.Code)
@@ -94,6 +94,21 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	if !serr.IsError() {
 		defer uc.Close()
 
+		quser := user.Clone()
+		serr = queryUser(uc, quser)
+		if len(quser.CtPpic) > 0 {
+			quser.CtImgt = util.ImageFileType(quser.CtPpic)
+		}
+
+		if !serr.IsError() {
+			if quser.HasProfilePicKey() {
+				_, serr = storage.DeleteProfilePic(cfg, quser)
+				if serr.IsError() {
+					util.LogIt("Cloudtacts", fmt.Sprintf("Error attempting to delete profile image: %v", serr))
+				}
+			}
+		}
+
 		if serr = uc.DeleteUser(user); !serr.IsError() {
 			fmt.Fprintln(w, fmt.Sprintf(deleteUserResponse, user.CtUser, user.CtProf))
 		} else {
@@ -147,7 +162,7 @@ func connect(w http.ResponseWriter, r *http.Request, requestName string) (*model
 }
 
 // Function queryUser is an HTTP handler
-func queryUser(w http.ResponseWriter, r *http.Request, funcName string) (*model.User, model.ServiceError) {
+func findUser(w http.ResponseWriter, r *http.Request, funcName string) (*model.User, model.ServiceError) {
 	user, uc, serr := connect(w, r, funcName)
 
 	util.LogIt("Cloudtacts", fmt.Sprintf("Got client: %v", uc))
@@ -155,13 +170,19 @@ func queryUser(w http.ResponseWriter, r *http.Request, funcName string) (*model.
 	if !serr.IsError() {
 		defer uc.Close()
 
-		serr = uc.UserInfo(user)
-		if serr.IsError() {
-			logIt(fmt.Sprintf("Query error: %v", serr))
-		}
+		serr = queryUser(uc, user)
 	}
 
 	return user, serr
+}
+
+func queryUser(uc auth.UserDBClient, user *model.User) model.ServiceError {
+	serr := uc.UserInfo(user)
+	if serr.IsError() {
+		logIt(fmt.Sprintf("Query error: %v", serr))
+	}
+
+	return serr
 }
 
 func getUser(w http.ResponseWriter, body []byte) (model.User, model.ServiceError) {

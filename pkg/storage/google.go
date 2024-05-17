@@ -59,3 +59,34 @@ func SaveProfilePic(cfg *config.Config, user *model.User) (bool, model.ServiceEr
 
 	return true, model.NoError
 }
+
+func DeleteProfilePic(cfg *config.Config, user *model.User) (bool, model.ServiceError) {
+	var ctx context.Context
+	if ctx = cfg.Context(); ctx == nil {
+		ctx = context.Background()
+	}
+
+	bucketName := cfg.ValueOf(model.KEY_STORAGE_BUCKET)
+	serr := model.NoError
+
+	client, err := gcs.NewClient(ctx)
+	if err != nil {
+		serr = model.CloudStorageError.WithCause(err)
+		util.LogIt("Cloudtacts", fmt.Sprintf("Failed to create cloud storage client: %v", serr))
+		return false, serr
+	}
+	defer client.Close()
+
+	objectKey := fmt.Sprintf(OBJECT_KEY_TMPL, user.CtUser, user.CtProf, user.CtImgt)
+	bucket := client.Bucket(bucketName)
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
+	err = bucket.Object(objectKey).Delete(ctx)
+	if err != nil {
+		serr = model.CloudStorageError.WithCause(err)
+	}
+
+	return true, serr
+}
