@@ -65,7 +65,7 @@ func (u *User) HasTextPwd() bool {
 }
 
 func (u *User) HasProfilePicKey() bool {
-	return !strings.HasPrefix(u.CtPpic, OBJK_TAG)
+	return strings.HasPrefix(u.CtPpic, OBJK_TAG)
 }
 
 func (u *User) Equals(user *User) bool {

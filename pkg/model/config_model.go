@@ -5,6 +5,12 @@ package model
 const (
 	KEY_CONFIG_FILE = "configFileId"
 
+	KEY_CLIENT_COMMAND     = "commandId"
+	KEY_CLIENT_IMAGE_FILE  = "imageId"
+	KEY_CLIENT_IMAGE_TYPE  = "imageTypeId"
+	KEY_CLIENT_INPUT_FILE  = "inputId"
+	KEY_CLIENT_OUTPUT_FILE = "outputId"
+
 	KEY_CLOUD_REGION  = "cloudRegionId"
 	KEY_CLOUD_PROJECT = "cloudProjectId"
 

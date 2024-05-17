@@ -11,6 +11,46 @@
 			"description": "Application configuration properties file."
 		},
 		{
+			"optionId": "commandId",
+			"cliArgument": "command",
+			"environmentVar": "CT_CLIENT_COMMAND",
+			"propertyName": "client.command",
+			"defaultVal": "userMustProvide",
+			"description": "Command tag to execute."
+		},
+		{
+			"optionId": "imageId",
+			"cliArgument": "image",
+			"environmentVar": "CT_CLIENT_IMAGE_FILE",
+			"propertyName": "client.image.file",
+			"defaultVal": "userMustProvide",
+			"description": "Image file to send to the endpoint."
+		},
+		{
+			"optionId": "imageTypeId",
+			"cliArgument": "imageType",
+			"environmentVar": "CT_CLIENT_IMAGE_TYPE",
+			"propertyName": "client.image.type",
+			"defaultVal": "userMustProvide",
+			"description": "Image file type to send to the endpoint."
+		},
+		{
+			"optionId": "inputId",
+			"cliArgument": "input",
+			"environmentVar": "CT_CLIENT_INPUT_FILE",
+			"propertyName": "client.input.file",
+			"defaultVal": "userMustProvide",
+			"description": "File with data to send to the endpoint."
+		},
+		{
+			"optionId": "outputId",
+			"cliArgument": "output",
+			"environmentVar": "CT_CLIENT_OUTPUT_FILE",
+			"propertyName": "client.output.file",
+			"defaultVal": "userMustProvide",
+			"description": "File to write results returned from the endpoint."
+		},
+		{
 			"optionId": "cloudRegionId",
 			"cliArgument": "cloudRegion",
 			"environmentVar": "CT_CLOUD_REGION",

@@ -27,7 +27,7 @@ func LoadUserListFile(path string, userList *model.UserList) error {
 		return WrappedError(err, "read file")
 	}
 
-	err = json.Unmarshal(bbuff, userList)
+	err = ToUserList(bbuff, userList)
 	if err != nil {
 		LogIt("", fmt.Sprintf("Error unmarshalling users file %v to JSON.", path))
 		return WrappedError(err, "unmarshal")

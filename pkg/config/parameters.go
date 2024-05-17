@@ -123,10 +123,7 @@ func (cfg *Config) ValueOfWithDefault(id string, defVal string) string {
 // AssignedValue returns true if the configuration parameter for the given
 // enumerated constant has a user assigned value.
 func (cfg *Config) AssignedValue(id string) bool {
-	if len(cfg.parameters[id]) > 0 && cfg.parameters[id] != model.USER_MUST_PROVIDE {
-		return true
-	}
-	return false
+	return (len(cfg.parameters[id]) > 0) && (cfg.parameters[id] != model.USER_MUST_PROVIDE)
 }
 
 // IsParsed returns true if configuration has been loaded and parsed.
