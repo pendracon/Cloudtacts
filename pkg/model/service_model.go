@@ -28,6 +28,9 @@ var (
 	ImageDecodingError  = ServiceError{"P01", "Error decoding image.", nil}
 	SystemError         = ServiceError{"S00", "An internal error has occurred.", nil}
 	DatetimeError       = ServiceError{"S01", "A datetime error has occurred.", nil}
+	IOError             = ServiceError{"S02", "An input/output error has occurred.", nil}
+
+	HttpErrorStatus map[string]int
 )
 
 // ServiceError represents a base error result
@@ -51,4 +54,25 @@ func (err ServiceError) IsError() bool {
 
 func (err ServiceError) WithCause(src error) ServiceError {
 	return ServiceError{err.Code, err.Message, src}
+}
+
+func init() {
+	HttpErrorStatus = make(map[string]int)
+	HttpErrorStatus[CloudStorageError.Code] = 502
+	HttpErrorStatus[DbQueryError.Code] = 500
+	HttpErrorStatus[DbScanError.Code] = 500
+	HttpErrorStatus[DbResultsError.Code] = 500
+	HttpErrorStatus[DbInsertError.Code] = 500
+	HttpErrorStatus[DbPrepareError.Code] = 500
+	HttpErrorStatus[DbExecuteError.Code] = 500
+	HttpErrorStatus[DbClientError.Code] = 500
+	HttpErrorStatus[DbOpenError.Code] = 500
+	HttpErrorStatus[DbPKeyError.Code] = 409
+	HttpErrorStatus[InvalidKeyError.Code] = 400
+	HttpErrorStatus[InvalidMsgError.Code] = 400
+	HttpErrorStatus[InternalReadError.Code] = 500
+	HttpErrorStatus[ImageDecodingError.Code] = 500
+	HttpErrorStatus[SystemError.Code] = 500
+	HttpErrorStatus[DatetimeError.Code] = 500
+	HttpErrorStatus[IOError.Code] = 500
 }

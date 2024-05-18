@@ -32,17 +32,22 @@ const (
 
 var testMode bool
 var cfg *config.Config
-var statusMap map[string]int
 
 // Function getUserInfo is an HTTP handler
 func getUserInfo(w http.ResponseWriter, r *http.Request) {
 	logIt("Executing 'getUserInfo'...")
 
-	if user, serr := findUser(w, r, cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_GET, getUserNameDef)); !serr.IsError() {
-		fmt.Fprintln(w, fmt.Sprintf(getUserResponse, user.CtUser, user.CtProf, user.UEmail, user.CtPpic, user.LLogin, user.UValid))
-	} else {
+	user, serr := findUser(w, r, cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_GET, getUserNameDef))
+	if !serr.IsError() {
+		body := fmt.Sprintf(getUserResponse, user.CtUser, user.CtProf, user.UEmail, user.CtPpic, user.LLogin, user.UValid)
+		if cnt, err := fmt.Fprintln(w, body); err != nil {
+			serr = model.IOError.WithCause(err)
+			logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
+		}
+	}
+	if serr.IsError() {
 		w.Header().Add(errorCodeHeader, model.SystemError.Code)
-		w.WriteHeader(statusMap[model.SystemError.Code])
+		w.WriteHeader(model.HttpErrorStatus[model.SystemError.Code])
 		w.Write([]byte(fmt.Sprintf("Error reading user info: %v/%v.\n%v", user.CtUser, user.CtProf, serr.Cause)))
 	}
 }
@@ -69,10 +74,14 @@ func addNewUser(w http.ResponseWriter, r *http.Request) {
 
 		if !serr.IsError() {
 			w.WriteHeader(http.StatusCreated)
-			fmt.Fprintln(w, fmt.Sprintf(addUserResponse, user.CtUser, user.CtProf))
-		} else {
+			if cnt, err := fmt.Fprintln(w, fmt.Sprintf(addUserResponse, user.CtUser, user.CtProf)); err != nil {
+				serr = model.IOError.WithCause(err)
+				logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
+			}
+		}
+		if serr.IsError() {
 			var msg string
-			status := statusMap[serr.Code]
+			status := model.HttpErrorStatus[serr.Code]
 			if strings.Contains(serr.Cause.Error(), model.UserExistsError) {
 				msg = fmt.Sprintf("Error adding new user: %v/%v - user exists.\n", user.CtUser, user.CtProf)
 			} else {
@@ -110,10 +119,14 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if serr = uc.DeleteUser(user); !serr.IsError() {
-			fmt.Fprintln(w, fmt.Sprintf(deleteUserResponse, user.CtUser, user.CtProf))
-		} else {
+			if cnt, err := fmt.Fprintln(w, fmt.Sprintf(deleteUserResponse, user.CtUser, user.CtProf)); err != nil {
+				serr = model.IOError.WithCause(err)
+				logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
+			}
+		}
+		if serr.IsError() {
 			w.Header().Add(errorCodeHeader, serr.Code)
-			w.WriteHeader(statusMap[serr.Code])
+			w.WriteHeader(model.HttpErrorStatus[serr.Code])
 			w.Write([]byte(fmt.Sprintf("Error deleting user: %v/%v.\n", user.CtUser, user.CtProf)))
 		}
 	}
@@ -128,10 +141,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		defer uc.Close()
 
 		if serr = uc.UpdateUser(user); !serr.IsError() {
-			fmt.Fprintln(w, fmt.Sprintf(updateUserResponse, user.CtUser, user.CtProf))
-		} else {
+			if cnt, err := fmt.Fprintln(w, fmt.Sprintf(updateUserResponse, user.CtUser, user.CtProf)); err != nil {
+				serr = model.IOError.WithCause(err)
+				logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
+			}
+		}
+		if serr.IsError() {
 			w.Header().Add(errorCodeHeader, serr.Code)
-			w.WriteHeader(statusMap[serr.Code])
+			w.WriteHeader(model.HttpErrorStatus[serr.Code])
 			w.Write([]byte(fmt.Sprintf("Error updating user: %v/%v.\n", user.CtUser, user.CtProf)))
 		}
 	}
@@ -171,6 +188,9 @@ func findUser(w http.ResponseWriter, r *http.Request, funcName string) (*model.U
 		defer uc.Close()
 
 		serr = queryUser(uc, user)
+		if !serr.IsError() && user.HasProfilePicKey() {
+			user.CtPpic = user.CtPpic[2:]
+		}
 	}
 
 	return user, serr
@@ -192,7 +212,7 @@ func getUser(w http.ResponseWriter, body []byte) (model.User, model.ServiceError
 		return userList.Users[0], model.NoError
 	} else {
 		w.Header().Add(errorCodeHeader, model.SystemError.Code)
-		w.WriteHeader(statusMap[model.SystemError.Code])
+		w.WriteHeader(model.HttpErrorStatus[model.SystemError.Code])
 		w.Write([]byte("Error converting request body.\n"))
 		return model.User{}, model.InvalidMsgError.WithCause(err)
 	}
@@ -202,7 +222,7 @@ func readRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, model.Serv
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		w.Header().Add(errorCodeHeader, model.InternalReadError.Code)
-		w.WriteHeader(statusMap[model.InternalReadError.Code])
+		w.WriteHeader(model.HttpErrorStatus[model.InternalReadError.Code])
 		w.Write([]byte("Error reading request body.\n"))
 		return nil, model.InternalReadError.WithCause(err)
 	}
@@ -213,13 +233,13 @@ func verifyRequestFunction(w http.ResponseWriter, r *http.Request, name string) 
 	ok, hval := headerValue(r, functionKeyHeader)
 	if !ok {
 		w.Header().Add(errorCodeHeader, model.InvalidMsgError.Code)
-		w.WriteHeader(statusMap[model.InvalidMsgError.Code]) // Bad Request: missing required header
+		w.WriteHeader(model.HttpErrorStatus[model.InvalidMsgError.Code]) // Bad Request: missing required header
 		w.Write([]byte("Missing reqired header.\n"))
 		return false, ""
 	}
 	if hval != name {
 		w.Header().Add(errorCodeHeader, model.InvalidMsgError.Code)
-		w.WriteHeader(statusMap[model.InvalidMsgError.Code]) // Bad Request: wrong function request
+		w.WriteHeader(model.HttpErrorStatus[model.InvalidMsgError.Code]) // Bad Request: wrong function request
 		w.Write([]byte("Wrong function requested.\n"))
 		return false, ""
 	}
@@ -274,19 +294,4 @@ func init() {
 		}
 	}
 	cfg = cfgx
-
-	statusMap = make(map[string]int)
-	statusMap[model.DbQueryError.Code] = 500
-	statusMap[model.DbScanError.Code] = 500
-	statusMap[model.DbResultsError.Code] = 500
-	statusMap[model.DbInsertError.Code] = 500
-	statusMap[model.DbPrepareError.Code] = 500
-	statusMap[model.DbExecuteError.Code] = 500
-	statusMap[model.DbClientError.Code] = 500
-	statusMap[model.DbOpenError.Code] = 500
-	statusMap[model.InvalidKeyError.Code] = 400
-	statusMap[model.InvalidMsgError.Code] = 400
-	statusMap[model.InternalReadError.Code] = 500
-	statusMap[model.SystemError.Code] = 500
-	statusMap[model.DatetimeError.Code] = 500
 }

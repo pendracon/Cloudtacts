@@ -48,7 +48,7 @@ func postRequest(cfg *config.Config, function, body string) (int, string, model.
 	defer resp.Body.Close()
 
 	size, err := strconv.Atoi(resp.Header.Get("Content-Length"))
-	logIt(fmt.Sprintf("Got %d size response", size))
+	logIt(fmt.Sprintf("Got %d length response", size))
 
 	var buff []byte
 	if err != nil {
