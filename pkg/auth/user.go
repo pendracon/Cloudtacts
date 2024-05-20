@@ -43,7 +43,7 @@ type UserDBClient interface {
 }
 
 func (uc *userClient) UserInfo(user *model.User) model.ServiceError {
-	var ferr model.ServiceError
+	ferr := model.NoError
 
 	if ok, err := validateUserKey(user); !ok {
 		return model.InvalidKeyError.WithCause(err)
@@ -69,6 +69,8 @@ func (uc *userClient) UserInfo(user *model.User) model.ServiceError {
 				user.LLogin = string(llogin[:])
 				user.UValid = string(uvalid[:])
 			}
+		} else {
+			ferr = model.DbPKeyMissingError
 		}
 
 		err = rows.Err()

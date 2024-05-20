@@ -46,9 +46,7 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if serr.IsError() {
-		w.Header().Add(errorCodeHeader, model.SystemError.Code)
-		w.WriteHeader(model.HttpErrorStatus[model.SystemError.Code])
-		w.Write([]byte(fmt.Sprintf("Error reading user info: %v/%v.\n%v", user.CtUser, user.CtProf, serr.Cause)))
+		writeErrorResponse(w, "Error reading user info: %v/%v.", user, serr)
 	}
 }
 
@@ -79,19 +77,18 @@ func addNewUser(w http.ResponseWriter, r *http.Request) {
 				logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
 			}
 		}
-		if serr.IsError() {
-			var msg string
-			status := model.HttpErrorStatus[serr.Code]
-			if strings.Contains(serr.Cause.Error(), model.UserExistsError) {
-				msg = fmt.Sprintf("Error adding new user: %v/%v - user exists.\n", user.CtUser, user.CtProf)
-			} else {
-				msg = fmt.Sprintf("Error adding new user: %v/%v.\n", user.CtUser, user.CtProf)
-			}
-			util.LogIt("Cloudtacts", fmt.Sprintf("%v%v", msg, serr))
-			w.Header().Add(errorCodeHeader, serr.Code)
-			w.WriteHeader(status)
-			w.Write([]byte(msg))
+	}
+	if serr.IsError() {
+		var msg, tmpl string
+		if strings.Contains(serr.Cause.Error(), model.UserExistsError) {
+			tmpl = "Error adding new user: %v/%v - user exists."
+			msg = fmt.Sprintf(tmpl, user.CtUser, user.CtProf)
+		} else {
+			tmpl = "Error adding new user: %v/%v."
+			msg = fmt.Sprintf(tmpl, user.CtUser, user.CtProf)
 		}
+		writeErrorResponse(w, tmpl, user, serr)
+		util.LogIt("Cloudtacts", fmt.Sprintf("%v%v", msg, serr))
 	}
 }
 
@@ -124,11 +121,9 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 				logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
 			}
 		}
-		if serr.IsError() {
-			w.Header().Add(errorCodeHeader, serr.Code)
-			w.WriteHeader(model.HttpErrorStatus[serr.Code])
-			w.Write([]byte(fmt.Sprintf("Error deleting user: %v/%v.\n", user.CtUser, user.CtProf)))
-		}
+	}
+	if serr.IsError() {
+		writeErrorResponse(w, "Error deleting user: %v/%v.", user, serr)
 	}
 }
 
@@ -146,11 +141,9 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 				logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
 			}
 		}
-		if serr.IsError() {
-			w.Header().Add(errorCodeHeader, serr.Code)
-			w.WriteHeader(model.HttpErrorStatus[serr.Code])
-			w.Write([]byte(fmt.Sprintf("Error updating user: %v/%v.\n", user.CtUser, user.CtProf)))
-		}
+	}
+	if serr.IsError() {
+		writeErrorResponse(w, "Error updating user: %v/%v.", user, serr)
 	}
 }
 
@@ -211,22 +204,44 @@ func getUser(w http.ResponseWriter, body []byte) (model.User, model.ServiceError
 	if err := util.ToUserList(body, &userList); err == nil {
 		return userList.Users[0], model.NoError
 	} else {
-		w.Header().Add(errorCodeHeader, model.SystemError.Code)
-		w.WriteHeader(model.HttpErrorStatus[model.SystemError.Code])
-		w.Write([]byte("Error converting request body.\n"))
-		return model.User{}, model.InvalidMsgError.WithCause(err)
+		user := model.User{}
+		serr := model.InvalidMsgError.WithCause(err)
+		writeErrorResponse(w, "Error converting request body.", &user, serr)
+		return user, serr
 	}
 }
 
 func readRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, model.ServiceError) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		w.Header().Add(errorCodeHeader, model.InternalReadError.Code)
-		w.WriteHeader(model.HttpErrorStatus[model.InternalReadError.Code])
-		w.Write([]byte("Error reading request body.\n"))
-		return nil, model.InternalReadError.WithCause(err)
+		serr := model.InternalReadError.WithCause(err)
+		writeErrorResponse(w, "Error reading request body.", &model.User{}, serr)
+		return nil, serr
 	}
 	return body, model.NoError
+}
+
+// Function writeErrorResponse writes an HTTP status and response message back
+// to the calling client. Parameter tmpl should be either: 1. a complete message or
+// a message template with fmt compatible placeholders for the user identifier
+// and profile name in that order. If the given user is undefined then a
+// complete
+func writeErrorResponse(w http.ResponseWriter, tmpl string, user *model.User, serr model.ServiceError) {
+	w.Header().Add(errorCodeHeader, serr.Code)
+	w.WriteHeader(model.HttpErrorStatus[serr.Code])
+	if serr.Cause == nil {
+		if len(user.CtUser) > 0 {
+			w.Write([]byte(fmt.Sprintf("%v\n%v.", fmt.Sprintf(tmpl, user.CtUser, user.CtProf), serr.Message)))
+		} else {
+			w.Write([]byte(fmt.Sprintf("%v\n%v.", tmpl, serr.Message)))
+		}
+	} else {
+		if len(user.CtUser) > 0 {
+			w.Write([]byte(fmt.Sprintf("%v\n%v\n%v", fmt.Sprintf(tmpl, user.CtUser, user.CtProf), serr.Message, serr.Cause)))
+		} else {
+			w.Write([]byte(fmt.Sprintf("%v\n%v\n%v", tmpl, serr.Message, serr.Cause)))
+		}
+	}
 }
 
 func verifyRequestFunction(w http.ResponseWriter, r *http.Request, name string) (bool, string) {

@@ -22,6 +22,7 @@ var (
 	DbClientError       = ServiceError{"D07", "Error getting user info client.", nil}
 	DbOpenError         = ServiceError{"D08", "Error opening user info.", nil}
 	DbPKeyError         = ServiceError{"D09", "Primary key already exists.", nil}
+	DbPKeyMissingError  = ServiceError{"D10", "Primary key not found.", nil}
 	InvalidKeyError     = ServiceError{"I01", "Incomplete user info.", nil}
 	InvalidMsgError     = ServiceError{"I02", "Invalid request message.", nil}
 	InternalReadError   = ServiceError{"I03", "Error reading request message.", nil}
@@ -68,6 +69,7 @@ func init() {
 	HttpErrorStatus[DbClientError.Code] = 500
 	HttpErrorStatus[DbOpenError.Code] = 500
 	HttpErrorStatus[DbPKeyError.Code] = 409
+	HttpErrorStatus[DbPKeyMissingError.Code] = 404
 	HttpErrorStatus[InvalidKeyError.Code] = 400
 	HttpErrorStatus[InvalidMsgError.Code] = 400
 	HttpErrorStatus[InternalReadError.Code] = 500
