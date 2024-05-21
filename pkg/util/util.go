@@ -6,7 +6,9 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/efficientgo/core/errors"
 
@@ -111,8 +113,60 @@ func ParseOptions(argSwitch string, argSeparator uint8, args []string) *map[stri
 	return &opts
 }
 
-func StoreProfilePicture(user *model.User) {
+func StripDateStamp(datetime string) string {
+	return strings.ReplaceAll(
+		strings.ReplaceAll(
+			strings.ReplaceAll(
+				strings.ReplaceAll(datetime, "-", ""),
+				":", ""),
+			"T", ""),
+		"Z", "")
+}
 
+func ToDatetime(tstamp string) (time.Time, model.ServiceError) {
+	var datetime time.Time
+	serr := model.NoError
+
+	var year, month, day, hour, minute, second int
+	var err error
+	if year, err = strconv.Atoi(tstamp[0:4]); err != nil {
+		serr = model.DatetimeError.WithCause(err)
+	}
+	if month, err = strconv.Atoi(tstamp[4:6]); err != nil && !serr.IsError() {
+		serr = model.DatetimeError.WithCause(err)
+	}
+	if day, err = strconv.Atoi(tstamp[6:8]); err != nil && !serr.IsError() {
+		serr = model.DatetimeError.WithCause(err)
+	}
+	if hour, err = strconv.Atoi(tstamp[8:10]); err != nil && !serr.IsError() {
+		serr = model.DatetimeError.WithCause(err)
+	}
+	if minute, err = strconv.Atoi(tstamp[10:12]); err != nil && !serr.IsError() {
+		serr = model.DatetimeError.WithCause(err)
+	}
+	if second, err = strconv.Atoi(tstamp[12:14]); err != nil && !serr.IsError() {
+		serr = model.DatetimeError.WithCause(err)
+	}
+	if !serr.IsError() {
+		tmonth, serr := ToMonth(month)
+		if !serr.IsError() {
+			datetime = time.Date(year, tmonth, day, hour, minute, second, 0, time.UTC)
+		}
+	}
+
+	return datetime, serr
+}
+
+func ToMonth(monthNum int) (time.Month, model.ServiceError) {
+	if monthNum < 1 || monthNum > 12 {
+		LogIt("Cloudtacts", fmt.Sprintf("Received invalid month number for conversion: %d", monthNum))
+		return -1, model.DatetimeError
+	}
+
+	month := []time.Month{time.January, time.February, time.March, time.April, time.May, time.June,
+		time.July, time.August, time.September, time.October, time.November, time.December}[monthNum-1]
+
+	return month, model.NoError
 }
 
 func WrappedError(err error, tag string) error {

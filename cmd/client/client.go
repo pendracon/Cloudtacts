@@ -147,6 +147,7 @@ func main() {
 	case "AddUser":
 	case "DeleteUser":
 	case "UpdateUser":
+	case "ValidateUser":
 	default:
 		if !cfg.AssignedValue(model.KEY_CLIENT_COMMAND) {
 			util.LogError("Client", "Command not specified", nil)

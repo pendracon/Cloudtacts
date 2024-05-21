@@ -249,7 +249,7 @@ func updateDateTimeColumn(user *model.User, uc *userClient, colName, colVal stri
 	if ferr == model.NoError {
 		defer stmtUpd.Close()
 
-		if dtime, err = strconv.Atoi(colVal); err != nil {
+		if dtime, err = strconv.Atoi(util.StripDateStamp(colVal)); err != nil {
 			ferr = model.DatetimeError.WithCause(err)
 		}
 	}

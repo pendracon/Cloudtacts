@@ -30,6 +30,7 @@ var (
 	SystemError         = ServiceError{"S00", "An internal error has occurred.", nil}
 	DatetimeError       = ServiceError{"S01", "A datetime error has occurred.", nil}
 	IOError             = ServiceError{"S02", "An input/output error has occurred.", nil}
+	UserValidationError = ServiceError{"U01", "User validation period expired.", nil}
 
 	HttpErrorStatus map[string]int
 )
@@ -77,4 +78,5 @@ func init() {
 	HttpErrorStatus[SystemError.Code] = 500
 	HttpErrorStatus[DatetimeError.Code] = 500
 	HttpErrorStatus[IOError.Code] = 500
+	HttpErrorStatus[UserValidationError.Code] = 403
 }

@@ -163,6 +163,14 @@
 			"description": "The Cloud Functions target name for update user."
 		},
 		{
+			"optionId": "userdbValidateUserId",
+			"cliArgument": "userdbValidateUserFunction",
+			"environmentVar": "CT_USERDB_VALIDATE_USER_FUNCTION",
+			"propertyName": "user.auth.function.validateUser",
+			"defaultVal": "ValidateUser",
+			"description": "The Cloud Functions target name for validate new user."
+		},
+		{
 			"optionId": "userdbMaxPoolConnectionsId",
 			"cliArgument": "userdbMaxPoolConnections",
 			"environmentVar": "CT_USERDB_MAX_POOL_SIZE",

@@ -20,6 +20,7 @@ const (
 	KEY_AUTH_FUNCTION_ADD  = "userdbAddUserId"
 	KEY_AUTH_FUNCTION_DEL  = "userdbDeleteUserId"
 	KEY_AUTH_FUNCTION_UPD  = "userdbUpdateUserId"
+	KEY_AUTH_FUNCTION_VAL  = "userdbValidateUserId"
 
 	KEY_USERDB_TEST_MODE = "userdbTestModeId"
 	KEY_USERDB_HOST_IP   = "userdbHostId"
