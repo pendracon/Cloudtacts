@@ -26,6 +26,9 @@ var (
 	InvalidKeyError     = ServiceError{"I01", "Incomplete user info.", nil}
 	InvalidMsgError     = ServiceError{"I02", "Invalid request message.", nil}
 	InternalReadError   = ServiceError{"I03", "Error reading request message.", nil}
+	InvalidLoginError   = ServiceError{"I04", "Invalid login credentials provided.", nil}
+	InvalidTokenError   = ServiceError{"I05", "Invalid user access token provided.", nil}
+	ExpiredTokenError   = ServiceError{"I06", "Expired user access token provided.", nil}
 	ImageDecodingError  = ServiceError{"P01", "Error decoding image.", nil}
 	SystemError         = ServiceError{"S00", "An internal error has occurred.", nil}
 	DatetimeError       = ServiceError{"S01", "A datetime error has occurred.", nil}
@@ -74,6 +77,9 @@ func init() {
 	HttpErrorStatus[InvalidKeyError.Code] = 400
 	HttpErrorStatus[InvalidMsgError.Code] = 400
 	HttpErrorStatus[InternalReadError.Code] = 500
+	HttpErrorStatus[InvalidLoginError.Code] = 403
+	HttpErrorStatus[InvalidTokenError.Code] = 400
+	HttpErrorStatus[ExpiredTokenError.Code] = 403
 	HttpErrorStatus[ImageDecodingError.Code] = 500
 	HttpErrorStatus[SystemError.Code] = 500
 	HttpErrorStatus[DatetimeError.Code] = 500

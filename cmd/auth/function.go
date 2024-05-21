@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
+	"github.com/google/uuid"
 
 	"Cloudtacts/pkg/auth"
 	"Cloudtacts/pkg/config"
@@ -19,7 +20,9 @@ import (
 const (
 	functionKeyHeader = "CT-Function-Name"
 	errorCodeHeader   = "CT-Error-Code"
+	userTokenHeader   = "CT-User-Token"
 
+	loginUserNameDef    = "LoginUser"
 	getUserNameDef      = "GetUser"
 	addUserNameDef      = "AddUser"
 	deleteUserNameDef   = "DeleteUser"
@@ -31,13 +34,54 @@ const (
 	deleteUserResponse   = "{'username': '%v', 'profile': '%v', 'result': 'deleted'}"
 	updateUserResponse   = "{'username': '%v', 'profile': '%v', 'result': 'updated'}"
 	validateUserResponse = "{'username': '%v', 'profile': '%v', 'result': 'validated'}"
+	loginUserResponse    = "{'username': '%v', 'profile': '%v', 'lastOn': '%v', 'result': 'logged'}"
 )
 
 var testMode bool
 var cfg *config.Config
 
+// Function loginUser is an HTTP handler
+func loginUser(w http.ResponseWriter, r *http.Request) {
+	logIt("Executing 'loginUser'...")
+
+	user, uc, serr := connect(w, r, cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_LOG, loginUserNameDef))
+	if !serr.IsError() {
+		defer uc.Close()
+
+		loginPass := user.CtPass
+		if user.HasTextPwd() {
+			loginPass = user.PwdHash(true)
+		}
+		user.CtPass = ""
+
+		serr = uc.UserInfo(user)
+		if !serr.IsError() {
+			if loginPass != user.CtPass {
+				serr = model.InvalidLoginError
+			} else {
+				user.LLogin = time.Now().UTC().Format(model.FMT_DATETIME_GO)
+				user.AToken = fmt.Sprintf("%v%v", strings.ReplaceAll(uuid.New().String(), "-", "")[0:22], user.LLogin)
+				serr = uc.UpdateUser(user)
+			}
+		}
+
+		if !serr.IsError() {
+			body := fmt.Sprintf(loginUserResponse, user.CtUser, user.CtProf, user.LLogin)
+			w.Header().Add(userTokenHeader, user.AToken)
+			if cnt, err := fmt.Fprintln(w, body); err != nil {
+				serr = model.IOError.WithCause(err)
+				logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
+			}
+		}
+	}
+
+	if serr.IsError() {
+		writeErrorResponse(w, "Error reading user info: %v/%v.", user, serr)
+	}
+}
+
 // Function validateUser is an HTTP handler
-func validateUser(w http.ResponseWriter, r *http.Request) {
+func validateUserInfo(w http.ResponseWriter, r *http.Request) {
 	logIt("Executing 'validateUser'...")
 
 	var serr model.ServiceError
@@ -67,7 +111,7 @@ func validateUser(w http.ResponseWriter, r *http.Request) {
 
 			if !serr.IsError() {
 				if isValid {
-					user.UValid = currentTime.Format("20060102150405")
+					user.UValid = currentTime.Format(model.FMT_DATETIME_GO)
 					if serr = uc.UpdateUser(user); !serr.IsError() {
 						if cnt, err := fmt.Fprintln(w, fmt.Sprintf(validateUserResponse, user.CtUser, user.CtProf)); err != nil {
 							serr = model.IOError.WithCause(err)
@@ -102,6 +146,9 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 		serr = uc.UserInfo(user)
 		if !serr.IsError() {
 			body := fmt.Sprintf(getUserResponse, user.CtUser, user.CtProf, user.UEmail, user.CtPpic, user.LLogin, user.UValid)
+			if len(user.AToken) > 0 {
+				w.Header().Add("CT-User-Token", user.AToken)
+			}
 			if cnt, err := fmt.Fprintln(w, body); err != nil {
 				serr = model.IOError.WithCause(err)
 				logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
@@ -115,7 +162,7 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 // Function addNewUser is an HTTP handler
-func addNewUser(w http.ResponseWriter, r *http.Request) {
+func addNewUserInfo(w http.ResponseWriter, r *http.Request) {
 	logIt("Executing 'addNewUser'...")
 
 	user, uc, serr := connect(w, r, cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_ADD, addUserNameDef))
@@ -133,7 +180,7 @@ func addNewUser(w http.ResponseWriter, r *http.Request) {
 		if !serr.IsError() {
 			serr = uc.AddUser(user)
 			if !serr.IsError() {
-				user.LLogin = time.Now().UTC().Format("20060102150405")
+				user.LLogin = time.Now().UTC().Format(model.FMT_DATETIME_GO)
 				serr = uc.UpdateUser(user)
 			}
 		}
@@ -166,20 +213,26 @@ func addNewUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // Function deleteUser is an HTTP handler
-func deleteUser(w http.ResponseWriter, r *http.Request) {
+func deleteUserInfo(w http.ResponseWriter, r *http.Request) {
 	logIt("Executing 'deleteUser'...")
 
+	var serr model.ServiceError
 	user, uc, serr := connect(w, r, cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_DEL, deleteUserNameDef))
+
 	if !serr.IsError() {
 		defer uc.Close()
 
 		quser := user.Clone()
 		serr = uc.UserInfo(quser)
-		if len(quser.CtPpic) > 0 {
-			quser.CtImgt = util.ImageFileType(quser.CtPpic)
+		if !serr.IsError() {
+			_, serr = validateToken(r, quser)
 		}
 
 		if !serr.IsError() {
+			if len(quser.CtPpic) > 0 {
+				quser.CtImgt = util.ImageFileType(quser.CtPpic)
+			}
+
 			if quser.HasProfilePicKey() {
 				_, serr = storage.DeleteProfilePic(cfg, quser)
 				if serr.IsError() {
@@ -188,20 +241,23 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if serr = uc.DeleteUser(user); !serr.IsError() {
-			if cnt, err := fmt.Fprintln(w, fmt.Sprintf(deleteUserResponse, user.CtUser, user.CtProf)); err != nil {
-				serr = model.IOError.WithCause(err)
-				logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
+		if !serr.IsError() {
+			if serr = uc.DeleteUser(user); !serr.IsError() {
+				if cnt, err := fmt.Fprintln(w, fmt.Sprintf(deleteUserResponse, user.CtUser, user.CtProf)); err != nil {
+					serr = model.IOError.WithCause(err)
+					logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
+				}
 			}
 		}
 	}
+
 	if serr.IsError() {
 		writeErrorResponse(w, "Error deleting user: %v/%v.", user, serr)
 	}
 }
 
 // Function updateUser is an HTTP handler
-func updateUser(w http.ResponseWriter, r *http.Request) {
+func updateUserInfo(w http.ResponseWriter, r *http.Request) {
 	logIt("Executing 'updateUser'...")
 
 	user, uc, serr := connect(w, r, cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_UPD, updateUserNameDef))
@@ -331,6 +387,23 @@ func verifyRequestFunction(r *http.Request, name string) (bool, string) {
 	return ok, hval
 }
 
+func validateToken(r *http.Request, user *model.User) (string, model.ServiceError) {
+	ok, token := headerValue(r, userTokenHeader)
+
+	if !ok || token != user.AToken {
+		return "", model.InvalidTokenError
+	}
+
+	if ttime, serr := util.ToDatetime(token[22:36]); !serr.IsError() {
+		passedTime := time.Now().Sub(ttime).Abs().Milliseconds()
+		if passedTime > (60 * 60 * 1000) {
+			return "", model.ExpiredTokenError
+		}
+	}
+
+	return token, model.NoError
+}
+
 func headerValue(r *http.Request, key string) (bool, string) {
 	val := r.Header.Get(key)
 	if len(val) > 0 {
@@ -356,6 +429,7 @@ func init() {
 
 	// Register an HTTP function with the Functions Framework
 	targetList := [][]string{
+		{model.KEY_AUTH_FUNCTION_LOG, loginUserNameDef},
 		{model.KEY_AUTH_FUNCTION_GET, getUserNameDef},
 		{model.KEY_AUTH_FUNCTION_ADD, addUserNameDef},
 		{model.KEY_AUTH_FUNCTION_DEL, deleteUserNameDef},
@@ -365,21 +439,24 @@ func init() {
 	for _, targetName := range targetList {
 		target := cfgx.ValueOfWithDefault(targetName[0], targetName[1])
 		switch targetName[1] {
+		case "LoginUser":
+			logIt(fmt.Sprintf("Binding function to target '%v'->'loginUser'.", target))
+			functions.HTTP(target, loginUser)
 		case "GetUser":
 			logIt(fmt.Sprintf("Binding function to target '%v'->'getUserInfo'.", target))
 			functions.HTTP(target, getUserInfo)
 		case "AddUser":
 			logIt(fmt.Sprintf("Binding function to target '%v'->'addNewUser'.", target))
-			functions.HTTP(target, addNewUser)
+			functions.HTTP(target, addNewUserInfo)
 		case "DeleteUser":
 			logIt(fmt.Sprintf("Binding function to target '%v'->'deleteUser'.", target))
-			functions.HTTP(target, deleteUser)
+			functions.HTTP(target, deleteUserInfo)
 		case "UpdateUser":
 			logIt(fmt.Sprintf("Binding function to target '%v'->'updateUser'.", target))
-			functions.HTTP(target, updateUser)
+			functions.HTTP(target, updateUserInfo)
 		case "ValidateUser":
 			logIt(fmt.Sprintf("Binding function to target '%v'->'validateUser'.", target))
-			functions.HTTP(target, validateUser)
+			functions.HTTP(target, validateUserInfo)
 		}
 	}
 	cfg = cfgx

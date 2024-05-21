@@ -19,7 +19,7 @@ const (
 	FUNCTION_URL = "http://%v:%v/%v"
 )
 
-func postRequest(cfg *config.Config, function, body string) (int, string, model.ServiceError) {
+func postRequest(cfg *config.Config, token *string, function, body string) (int, string, model.ServiceError) {
 	serr := model.NoError
 
 	client := &http.Client{}
@@ -38,6 +38,9 @@ func postRequest(cfg *config.Config, function, body string) (int, string, model.
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("CT-Function-Name", function)
+	if len(*token) > 0 {
+		req.Header.Add("CT-User-Token", *token)
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -60,6 +63,10 @@ func postRequest(cfg *config.Config, function, body string) (int, string, model.
 			logIt(fmt.Sprintf("Error reading response of size %d: %v.", size, serr))
 			return 0, "", serr
 		}
+	}
+
+	if len(resp.Header.Get("CT-User-Token")) > 0 {
+		*token = resp.Header.Get("CT-User-Token")
 	}
 
 	return resp.StatusCode, string(buff[:]), serr
@@ -132,6 +139,26 @@ func attachImage(data string, img []byte, itype string) (string, model.ServiceEr
 	return rval, serr
 }
 
+func attachCreds(data, creds string) (string, model.ServiceError) {
+	var userList model.UserList
+	var rval string
+	serr := model.NoError
+
+	err := util.ToUserList([]byte(data), &userList)
+	if err == nil {
+		userList.Users[0].CtPass = creds
+		if bbuff, err := json.Marshal(userList); err == nil {
+			rval = string(bbuff[:])
+		} else {
+			serr = model.ClientError.WithCause(err)
+		}
+	} else {
+		serr = model.ClientError.WithCause(err)
+	}
+
+	return rval, serr
+}
+
 func main() {
 	var cfg *config.Config
 	var err error
@@ -148,6 +175,7 @@ func main() {
 	case "DeleteUser":
 	case "UpdateUser":
 	case "ValidateUser":
+	case "LoginUser":
 	default:
 		if !cfg.AssignedValue(model.KEY_CLIENT_COMMAND) {
 			util.LogError("Client", "Command not specified", nil)
@@ -161,24 +189,38 @@ func main() {
 	}
 
 	data, serr = readInput(cfg)
+
+	if !serr.IsError() && cfg.AssignedValue(model.KEY_CLIENT_USER_CREDS) {
+		data, serr = attachCreds(data, cfg.ValueOf(model.KEY_CLIENT_USER_CREDS))
+	}
+
+	if !serr.IsError() && cfg.AssignedValue(model.KEY_CLIENT_IMAGE_FILE) {
+		var img []byte
+		var itype string
+
+		img, itype, serr = loadImage(cfg)
+		if !serr.IsError() {
+			data, serr = attachImage(data, img, itype)
+		}
+	}
+
+	if !serr.IsError() {
+		var status int
+		var resp string
+		var token string
+
+		status, resp, serr = postRequest(cfg, &token, cfg.ValueOf(model.KEY_CLIENT_COMMAND), data)
+
+		if !serr.IsError() {
+			logIt(fmt.Sprintf("Command executed with status %v", status))
+			logIt(fmt.Sprintf("User token: %v", token))
+			logIt(fmt.Sprintf("Response:\n%v", resp))
+		}
+	}
+
 	if serr.IsError() {
 		util.LogError("Client", serr.Message, serr.Cause)
 	}
-
-	if cfg.AssignedValue(model.KEY_CLIENT_IMAGE_FILE) {
-		img, itype, serr := loadImage(cfg)
-		if serr.IsError() {
-			util.LogError("Client", serr.Message, serr.Cause)
-		}
-		if data, serr = attachImage(data, img, itype); serr.IsError() {
-			util.LogError("Client", serr.Message, serr.Cause)
-		}
-	}
-
-	status, resp, serr := postRequest(cfg, cfg.ValueOf(model.KEY_CLIENT_COMMAND), data)
-
-	logIt(fmt.Sprintf("Command executed with status %v", status))
-	logIt(fmt.Sprintf("Response:\n%v", resp))
 }
 
 func logIt(message string) {

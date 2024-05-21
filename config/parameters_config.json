@@ -11,6 +11,14 @@
 			"description": "Application configuration properties file."
 		},
 		{
+			"optionId": "userCredsId",
+			"cliArgument": "password",
+			"environmentVar": "CT_CLIENT_USER_PASSWORD",
+			"propertyName": "client.credentials",
+			"defaultVal": "userMustProvide",
+			"description": "User login password."
+		},
+		{
 			"optionId": "commandId",
 			"cliArgument": "command",
 			"environmentVar": "CT_CLIENT_COMMAND",
@@ -129,6 +137,14 @@
 			"propertyName": "user.auth.function.testPort",
 			"defaultVal": "8088",
 			"description": "The Cloud Functions test service binding port."
+		},
+		{
+			"optionId": "userdbLoginUserId",
+			"cliArgument": "userdbLoginUserFunction",
+			"environmentVar": "CT_USERDB_LOGIN_USER_FUNCTION",
+			"propertyName": "user.auth.function.loginUser",
+			"defaultVal": "LoginUser",
+			"description": "The Cloud Functions target name for login user."
 		},
 		{
 			"optionId": "userdbGetUserId",

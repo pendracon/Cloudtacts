@@ -3,9 +3,12 @@
 package model
 
 const (
+	FMT_DATETIME_GO = "20060102150405"
+
 	KEY_CONFIG_FILE = "configFileId"
 
 	KEY_CLIENT_COMMAND     = "commandId"
+	KEY_CLIENT_USER_CREDS  = "userCredsId"
 	KEY_CLIENT_IMAGE_FILE  = "imageId"
 	KEY_CLIENT_IMAGE_TYPE  = "imageTypeId"
 	KEY_CLIENT_INPUT_FILE  = "inputId"
@@ -16,6 +19,7 @@ const (
 
 	KEY_AUTH_FUNCTION_HOST = "userdbFunctionHostId"
 	KEY_AUTH_FUNCTION_PORT = "userdbFunctionPortId"
+	KEY_AUTH_FUNCTION_LOG  = "userdbLoginUserId"
 	KEY_AUTH_FUNCTION_GET  = "userdbGetUserId"
 	KEY_AUTH_FUNCTION_ADD  = "userdbAddUserId"
 	KEY_AUTH_FUNCTION_DEL  = "userdbDeleteUserId"
