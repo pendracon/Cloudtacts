@@ -8,6 +8,7 @@ const (
 	KEY_CONFIG_FILE = "configFileId"
 
 	KEY_CLIENT_COMMAND     = "commandId"
+	KEY_CLIENT_TOKEN       = "tokenId"
 	KEY_CLIENT_USER_CREDS  = "userCredsId"
 	KEY_CLIENT_IMAGE_FILE  = "imageId"
 	KEY_CLIENT_IMAGE_TYPE  = "imageTypeId"

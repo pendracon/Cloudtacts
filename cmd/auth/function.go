@@ -45,33 +45,35 @@ func loginUser(w http.ResponseWriter, r *http.Request) {
 	logIt("Executing 'loginUser'...")
 
 	user, uc, serr := connect(w, r, cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_LOG, loginUserNameDef))
+	var loginPass string
 	if !serr.IsError() {
 		defer uc.Close()
 
-		loginPass := user.CtPass
+		loginPass = user.CtPass
 		if user.HasTextPwd() {
 			loginPass = user.PwdHash(true)
 		}
 		user.CtPass = ""
 
 		serr = uc.UserInfo(user)
-		if !serr.IsError() {
-			if loginPass != user.CtPass {
-				serr = model.InvalidLoginError
-			} else {
-				user.LLogin = time.Now().UTC().Format(model.FMT_DATETIME_GO)
-				user.AToken = fmt.Sprintf("%v%v", strings.ReplaceAll(uuid.New().String(), "-", "")[0:22], user.LLogin)
-				serr = uc.UpdateUser(user)
-			}
-		}
+	}
 
-		if !serr.IsError() {
-			body := fmt.Sprintf(loginUserResponse, user.CtUser, user.CtProf, user.LLogin)
-			w.Header().Add(userTokenHeader, user.AToken)
-			if cnt, err := fmt.Fprintln(w, body); err != nil {
-				serr = model.IOError.WithCause(err)
-				logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
-			}
+	if !serr.IsError() {
+		if loginPass != user.CtPass {
+			serr = model.InvalidLoginError
+		} else {
+			user.LLogin = time.Now().UTC().Format(model.FMT_DATETIME_GO)
+			user.AToken = fmt.Sprintf("%v%v", strings.ReplaceAll(uuid.New().String(), "-", "")[0:22], user.LLogin)
+			serr = uc.UpdateUser(user)
+		}
+	}
+
+	if !serr.IsError() {
+		body := fmt.Sprintf(loginUserResponse, user.CtUser, user.CtProf, user.LLogin)
+		w.Header().Add(userTokenHeader, user.AToken)
+		if cnt, err := fmt.Fprintln(w, body); err != nil {
+			serr = model.IOError.WithCause(err)
+			logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
 		}
 	}
 
@@ -94,39 +96,39 @@ func validateUserInfo(w http.ResponseWriter, r *http.Request) {
 		defer uc.Close()
 
 		serr = uc.UserInfo(user)
-		if !serr.IsError() {
-			currentTime := time.Now().UTC()
-			isValid := false
+	}
 
-			added := util.StripDateStamp(user.LLogin)
+	isValid := false
+	currentTime := time.Now().UTC()
+	if !serr.IsError() {
+		added := util.StripDateStamp(user.LLogin)
 
-			if len(added) == 14 && len(user.UValid) == 0 {
-				// Is validation response in time? (<= 15min)
-				addedDatetime, serr := util.ToDatetime(added)
-				if !serr.IsError() {
-					passedTime = currentTime.Sub(addedDatetime)
-					isValid = (passedTime.Abs().Milliseconds() <= (15 * 60 * 1000)) // <= 15 mins
-				}
-			}
-
+		if len(added) == 14 && len(user.UValid) == 0 {
+			// Is validation response in time? (<= 15min)
+			addedDatetime, serr := util.ToDatetime(added)
 			if !serr.IsError() {
-				if isValid {
-					user.UValid = currentTime.Format(model.FMT_DATETIME_GO)
-					if serr = uc.UpdateUser(user); !serr.IsError() {
-						if cnt, err := fmt.Fprintln(w, fmt.Sprintf(validateUserResponse, user.CtUser, user.CtProf)); err != nil {
-							serr = model.IOError.WithCause(err)
-							logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
-						}
-					}
-				} else {
-					if serr = removeUserData(uc, user); serr.IsError() {
-						util.LogIt("Cloudtacts", fmt.Sprintf("Error removing user data: %v", serr))
-					}
+				passedTime = currentTime.Sub(addedDatetime)
+				isValid = (passedTime.Abs().Milliseconds() <= (15 * 60 * 1000)) // <= 15 mins
+			}
+		}
+	}
 
-					serr = model.UserValidationError
-					logIt(fmt.Sprintf("Validation failure -\nUser added on: %v\nUser validated on: %v\nTime passed: %v", user.LLogin, currentTime, passedTime.Abs()))
+	if !serr.IsError() {
+		if isValid {
+			user.UValid = currentTime.Format(model.FMT_DATETIME_GO)
+			if serr = uc.UpdateUser(user); !serr.IsError() {
+				if cnt, err := fmt.Fprintln(w, fmt.Sprintf(validateUserResponse, user.CtUser, user.CtProf)); err != nil {
+					serr = model.IOError.WithCause(err)
+					logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
 				}
 			}
+		} else {
+			if serr = removeUserData(uc, user); serr.IsError() {
+				util.LogIt("Cloudtacts", fmt.Sprintf("Error removing user data: %v", serr))
+			}
+
+			serr = model.UserValidationError
+			logIt(fmt.Sprintf("Validation failure -\nUser added on: %v\nUser validated on: %v\nTime passed: %v", user.LLogin, currentTime, passedTime.Abs()))
 		}
 	}
 
@@ -144,15 +146,16 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 		defer uc.Close()
 
 		serr = uc.UserInfo(user)
-		if !serr.IsError() {
-			body := fmt.Sprintf(getUserResponse, user.CtUser, user.CtProf, user.UEmail, user.CtPpic, user.LLogin, user.UValid)
-			if len(user.AToken) > 0 {
-				w.Header().Add("CT-User-Token", user.AToken)
-			}
-			if cnt, err := fmt.Fprintln(w, body); err != nil {
-				serr = model.IOError.WithCause(err)
-				logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
-			}
+	}
+
+	if !serr.IsError() {
+		body := fmt.Sprintf(getUserResponse, user.CtUser, user.CtProf, user.UEmail, user.CtPpic, user.LLogin, user.UValid)
+		if len(user.AToken) > 0 {
+			w.Header().Add("CT-User-Token", user.AToken)
+		}
+		if cnt, err := fmt.Fprintln(w, body); err != nil {
+			serr = model.IOError.WithCause(err)
+			logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
 		}
 	}
 
@@ -176,28 +179,29 @@ func addNewUserInfo(w http.ResponseWriter, r *http.Request) {
 		if len(user.CtPpic) > 0 && !user.HasProfilePicKey() {
 			_, serr = storage.SaveProfilePic(cfg, user)
 		}
+	}
 
+	if !serr.IsError() {
+		serr = uc.AddUser(user)
 		if !serr.IsError() {
-			serr = uc.AddUser(user)
-			if !serr.IsError() {
-				user.LLogin = time.Now().UTC().Format(model.FMT_DATETIME_GO)
-				serr = uc.UpdateUser(user)
-			}
-		}
-
-		// TODO: generate verification e-mail
-		//if !serr.IsError() {
-		// serr = sendVerificationEmail(w, user)
-		//}
-
-		if !serr.IsError() {
-			w.WriteHeader(http.StatusCreated)
-			if cnt, err := fmt.Fprintln(w, fmt.Sprintf(addUserResponse, user.CtUser, user.CtProf)); err != nil {
-				serr = model.IOError.WithCause(err)
-				logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
-			}
+			user.LLogin = time.Now().UTC().Format(model.FMT_DATETIME_GO)
+			serr = uc.UpdateUser(user)
 		}
 	}
+
+	// TODO: generate verification e-mail
+	//if !serr.IsError() {
+	// serr = sendVerificationEmail(w, user)
+	//}
+
+	if !serr.IsError() {
+		w.WriteHeader(http.StatusCreated)
+		if cnt, err := fmt.Fprintln(w, fmt.Sprintf(addUserResponse, user.CtUser, user.CtProf)); err != nil {
+			serr = model.IOError.WithCause(err)
+			logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
+		}
+	}
+
 	if serr.IsError() {
 		var msg, tmpl string
 		if strings.Contains(serr.Cause.Error(), model.UserExistsError) {
@@ -219,34 +223,35 @@ func deleteUserInfo(w http.ResponseWriter, r *http.Request) {
 	var serr model.ServiceError
 	user, uc, serr := connect(w, r, cfg.ValueOfWithDefault(model.KEY_AUTH_FUNCTION_DEL, deleteUserNameDef))
 
+	var quser *model.User
 	if !serr.IsError() {
 		defer uc.Close()
 
-		quser := user.Clone()
+		quser = user.Clone()
 		serr = uc.UserInfo(quser)
 		if !serr.IsError() {
 			_, serr = validateToken(r, quser)
 		}
+	}
 
-		if !serr.IsError() {
-			if len(quser.CtPpic) > 0 {
-				quser.CtImgt = util.ImageFileType(quser.CtPpic)
-			}
-
-			if quser.HasProfilePicKey() {
-				_, serr = storage.DeleteProfilePic(cfg, quser)
-				if serr.IsError() {
-					util.LogIt("Cloudtacts", fmt.Sprintf("Error attempting to delete profile image: %v", serr))
-				}
-			}
+	if !serr.IsError() {
+		if len(quser.CtPpic) > 0 {
+			quser.CtImgt = util.ImageFileType(quser.CtPpic)
 		}
 
-		if !serr.IsError() {
-			if serr = uc.DeleteUser(user); !serr.IsError() {
-				if cnt, err := fmt.Fprintln(w, fmt.Sprintf(deleteUserResponse, user.CtUser, user.CtProf)); err != nil {
-					serr = model.IOError.WithCause(err)
-					logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
-				}
+		if quser.HasProfilePicKey() {
+			_, serr = storage.DeleteProfilePic(cfg, quser)
+			if serr.IsError() {
+				util.LogIt("Cloudtacts", fmt.Sprintf("Error attempting to delete profile image: %v", serr))
+			}
+		}
+	}
+
+	if !serr.IsError() {
+		if serr = uc.DeleteUser(user); !serr.IsError() {
+			if cnt, err := fmt.Fprintln(w, fmt.Sprintf(deleteUserResponse, user.CtUser, user.CtProf)); err != nil {
+				serr = model.IOError.WithCause(err)
+				logIt(fmt.Sprintf("Wrote %d bytes\nError = %v", cnt, err))
 			}
 		}
 	}
@@ -264,6 +269,25 @@ func updateUserInfo(w http.ResponseWriter, r *http.Request) {
 	if !serr.IsError() {
 		defer uc.Close()
 
+		quser := user.Clone()
+		serr = uc.UserInfo(quser)
+		if !serr.IsError() {
+			user.AToken, serr = validateToken(r, quser)
+		}
+		if !serr.IsError() {
+			if user.HasTextPwd() {
+				user.CtPass = user.PwdHash(true)
+			}
+
+			if len(user.CtPpic) > 0 && !user.HasProfilePicKey() {
+				_, serr = storage.SaveProfilePic(cfg, user)
+			} else {
+				user.CtPpic = quser.CtPpic
+			}
+		}
+	}
+
+	if !serr.IsError() {
 		if serr = uc.UpdateUser(user); !serr.IsError() {
 			if cnt, err := fmt.Fprintln(w, fmt.Sprintf(updateUserResponse, user.CtUser, user.CtProf)); err != nil {
 				serr = model.IOError.WithCause(err)
@@ -271,6 +295,7 @@ func updateUserInfo(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
 	if serr.IsError() {
 		writeErrorResponse(w, "Error updating user: %v/%v.", user, serr)
 	}
@@ -395,7 +420,7 @@ func validateToken(r *http.Request, user *model.User) (string, model.ServiceErro
 	}
 
 	if ttime, serr := util.ToDatetime(token[22:36]); !serr.IsError() {
-		passedTime := time.Now().Sub(ttime).Abs().Milliseconds()
+		passedTime := time.Since(ttime).Abs().Milliseconds()
 		if passedTime > (60 * 60 * 1000) {
 			return "", model.ExpiredTokenError
 		}

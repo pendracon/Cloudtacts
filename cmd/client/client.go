@@ -207,7 +207,7 @@ func main() {
 	if !serr.IsError() {
 		var status int
 		var resp string
-		var token string
+		token := cfg.ValueOf(model.KEY_CLIENT_TOKEN)
 
 		status, resp, serr = postRequest(cfg, &token, cfg.ValueOf(model.KEY_CLIENT_COMMAND), data)
 

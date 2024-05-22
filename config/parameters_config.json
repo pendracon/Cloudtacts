@@ -19,6 +19,14 @@
 			"description": "User login password."
 		},
 		{
+			"optionId": "tokenId",
+			"cliArgument": "token",
+			"environmentVar": "CT_CLIENT_TOKEN",
+			"propertyName": "client.token",
+			"defaultVal": "userMustProvide",
+			"description": "User access token."
+		},
+		{
 			"optionId": "commandId",
 			"cliArgument": "command",
 			"environmentVar": "CT_CLIENT_COMMAND",
